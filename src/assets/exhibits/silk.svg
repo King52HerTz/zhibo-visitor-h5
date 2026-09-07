@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-labelledby="title desc">
+  <title id="title">素纱单衣抽象演示图</title>
+  <desc id="desc">米白色丝织衣物的抽象展示图</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d9c7ab"/><stop offset="1" stop-color="#8e6d4b"/></linearGradient><linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffaf0" stop-opacity=".95"/><stop offset="1" stop-color="#e6d6bd" stop-opacity=".75"/></linearGradient></defs>
+  <rect width="800" height="520" fill="url(#bg)"/><circle cx="660" cy="90" r="170" fill="#f7ead3" opacity=".16"/><path d="M232 92h336l-28 92-25 256H286l-25-256z" fill="url(#cloth)" stroke="#fff7e8" stroke-width="5"/><path d="M232 92l104 87 32-87m168 0-104 87-32-87M311 184h178M302 257h196M294 332h212" fill="none" stroke="#aa8056" stroke-opacity=".6" stroke-width="3"/><path d="M282 440h236" stroke="#604a36" stroke-opacity=".55" stroke-width="8"/><text x="36" y="474" fill="#fff8ea" font-family="serif" font-size="22" letter-spacing="6">SILK / HAN</text>
+</svg>

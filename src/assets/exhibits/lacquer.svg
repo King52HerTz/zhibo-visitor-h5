@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-labelledby="title desc">
+  <title id="title">黑地彩绘棺抽象演示图</title>
+  <desc id="desc">黑色漆木器物与赭色彩绘纹样的抽象展示图</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#302925"/><stop offset="1" stop-color="#766146"/></linearGradient><linearGradient id="box" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#40322b"/><stop offset="1" stop-color="#171413"/></linearGradient></defs>
+  <rect width="800" height="520" fill="url(#bg)"/><circle cx="650" cy="130" r="160" fill="#d5a061" opacity=".13"/><rect x="166" y="139" width="470" height="232" rx="16" fill="url(#box)" stroke="#be8d50" stroke-width="8"/><path d="M190 195c52-38 95 38 147 0s95 38 147 0 95 38 128 0M190 286c52-38 95 38 147 0s95 38 147 0 95 38 128 0" fill="none" stroke="#c28a4d" stroke-width="8" opacity=".8"/><path d="M231 169v171m111-171v171m111-171v171m111-171v171" stroke="#d8b37c" stroke-width="2" opacity=".5"/><text x="36" y="474" fill="#f3e1c4" font-family="serif" font-size="22" letter-spacing="6">LACQUER / HAN</text>
+</svg>
