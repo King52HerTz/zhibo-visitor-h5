@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 
 GuideMode = Literal["quick", "deep", "child"]
+RecognitionStatus = Literal["READY", "NOT_FOUND", "ERROR", "CONFIRMED"]
+KnowledgeStatus = Literal["VERIFIED", "PARTIAL", "NOT_FOUND"]
 
 
 class SessionCreateRequest(BaseModel):
@@ -55,9 +57,33 @@ class SessionDeleteResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     upstream: Literal["configured", "not_configured"]
-    version: str = "stage-2"
+    recognition: Literal["configured", "not_configured"]
+    version: str = "stage-3"
 
 
 class PublicEvent(BaseModel):
     type: str
     data: dict[str, Any] = Field(default_factory=dict)
+
+
+class RecognitionCandidate(BaseModel):
+    candidate_id: str
+    name: str
+    confidence: float = Field(ge=0, le=1)
+    visual_basis: list[str] = Field(default_factory=list)
+    knowledge_status: KnowledgeStatus
+    sources: list[PublicSource] = Field(default_factory=list)
+
+
+class RecognitionResponse(BaseModel):
+    recognition_id: str
+    status: RecognitionStatus
+    observations: list[str] = Field(default_factory=list)
+    candidates: list[RecognitionCandidate] = Field(default_factory=list)
+    message: str
+    created_at: datetime
+    confirmed_candidate_id: str | None = None
+
+
+class RecognitionConfirmRequest(BaseModel):
+    candidate_id: str = Field(min_length=1, max_length=120)
