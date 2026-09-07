@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import AppIcon from './AppIcon.vue'
+import homeIcon from '../assets/visuals/nav-home.webp'
+import exploreIcon from '../assets/visuals/nav-explore.webp'
+import guideIcon from '../assets/visuals/nav-guide.webp'
+import passportIcon from '../assets/visuals/nav-passport.webp'
 
 const route = useRoute()
 const items = [
-  { label: '首页', path: '/', icon: 'home' as const },
-  { label: '探索', path: '/explore', icon: 'compass' as const },
-  { label: 'AI 导览', path: '/guide', icon: 'spark' as const },
-  { label: '我的展册', path: '/passport', icon: 'bookmark' as const },
+  { label: '首页', path: '/', icon: homeIcon, tone: 'home' },
+  { label: '探索', path: '/explore', icon: exploreIcon, tone: 'explore' },
+  { label: 'AI 导览', path: '/guide', icon: guideIcon, tone: 'guide' },
+  { label: '我的展册', path: '/passport', icon: passportIcon, tone: 'passport' },
 ]
 
-const isActive = (path: string) => computed(() => {
+function isActive(path: string) {
   if (path === '/') return route.path === path
   return route.path.startsWith(path)
-}).value
+}
 </script>
 
 <template>
@@ -24,9 +26,9 @@ const isActive = (path: string) => computed(() => {
       :key="item.path"
       :to="item.path"
       class="bottom-nav__item"
-      :class="{ 'is-active': isActive(item.path) }"
+      :class="[`bottom-nav__item--${item.tone}`, { 'is-active': isActive(item.path) }]"
     >
-      <AppIcon :name="item.icon" :size="21" />
+      <span class="bottom-nav__icon" aria-hidden="true"><img :src="item.icon" alt="" /></span>
       <span>{{ item.label }}</span>
     </RouterLink>
   </nav>

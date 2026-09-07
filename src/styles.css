@@ -836,3 +836,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .recognition-summary { background: linear-gradient(135deg, #dfefed, #e9e8f3); border: 1px solid rgba(127, 144, 167, 0.18); box-shadow: var(--shadow-card); }
 .candidate-card--selected { border: 1px solid #8ca1bf; box-shadow: 0 14px 34px rgba(82, 105, 148, 0.12); }
 .bottom-nav { background: rgba(250, 251, 254, 0.88); border-color: rgba(164, 175, 197, 0.3); box-shadow: 0 -8px 26px rgba(66, 82, 112, 0.06); backdrop-filter: blur(18px); }
+
+.bottom-nav {
+  position: fixed;
+  z-index: 12;
+  right: 12px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(calc(100% - 24px), 540px);
+  margin: 0 auto;
+  padding: 7px 6px 6px;
+  border: 1px solid rgba(157, 171, 193, 0.3);
+  border-radius: 24px;
+  box-shadow: 0 16px 42px rgba(62, 77, 105, 0.16);
+}
+.bottom-nav__item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  color: #7b8597;
+  border-radius: 18px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+  touch-action: manipulation;
+}
+.bottom-nav__item:active { transform: scale(0.97); }
+.bottom-nav__icon { display: grid; place-items: center; width: 42px; height: 42px; overflow: hidden; border-radius: 14px; transition: transform 220ms ease, background 180ms ease; }
+.bottom-nav__icon img { width: 48px; height: 48px; max-width: none; object-fit: cover; mix-blend-mode: multiply; filter: grayscale(0.48) saturate(0.64); opacity: 0.68; transition: filter 180ms ease, opacity 180ms ease; }
+.bottom-nav__item.is-active { color: #344963; font-weight: 800; }
+.bottom-nav__item.is-active .bottom-nav__icon { transform: translateY(-2px) scale(1.06); }
+.bottom-nav__item.is-active .bottom-nav__icon img { filter: none; opacity: 1; }
+.bottom-nav__item.is-active::after { position: absolute; bottom: 3px; width: 4px; height: 4px; background: #7e9faa; border-radius: 50%; content: ''; }
+.bottom-nav__item--home.is-active { background: linear-gradient(145deg, rgba(219, 234, 242, 0.74), rgba(238, 238, 248, 0.48)); }
+.bottom-nav__item--explore.is-active { background: linear-gradient(145deg, rgba(216, 239, 233, 0.78), rgba(235, 241, 247, 0.5)); }
+.bottom-nav__item--guide.is-active { background: linear-gradient(145deg, rgba(234, 228, 246, 0.8), rgba(244, 235, 227, 0.52)); }
+.bottom-nav__item--passport.is-active { background: linear-gradient(145deg, rgba(226, 233, 246, 0.78), rgba(236, 230, 245, 0.52)); }
