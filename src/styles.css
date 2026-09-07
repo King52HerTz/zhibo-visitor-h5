@@ -745,3 +745,94 @@ body { background: radial-gradient(circle at 4% 4%, rgba(0, 219, 220, 0.17), tra
 .source-strip p { font-size: 12px; }
 
 @keyframes scan-line { 0%, 100% { transform: translateY(-74px); opacity: 0; } 18%, 82% { opacity: 1; } 50% { transform: translateY(74px); } }
+
+/* Sprite-aligned palette and surfaces */
+:root {
+  --paper: #f6f6fc;
+  --paper-deep: #ebeef7;
+  --paper-soft: #fdfdff;
+  --ink: #263144;
+  --ink-muted: #626d82;
+  --ink-faint: #8c96aa;
+  --line: #dce1ed;
+  --line-strong: #c8cfdf;
+  --ochre: #dd8265;
+  --ochre-dark: #536a9d;
+  --ochre-soft: #e1e8f7;
+  --sage: #6ca99b;
+  --sage-soft: #dff0eb;
+  --rose: #c97d87;
+  --rose-soft: #f5e4e5;
+  --shadow-soft: 0 24px 65px rgba(75, 88, 122, 0.14);
+  --shadow-card: 0 12px 32px rgba(79, 94, 128, 0.09);
+}
+
+body {
+  background:
+    radial-gradient(circle at 4% 2%, rgba(159, 213, 218, 0.28), transparent 22rem),
+    radial-gradient(circle at 100% 26%, rgba(232, 181, 154, 0.2), transparent 20rem),
+    linear-gradient(180deg, #f8f8fd 0%, #f4f5fb 100%);
+}
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline-color: rgba(83, 106, 157, 0.46); }
+.brand-mark { color: #405878; background: linear-gradient(145deg, #d7eee9, #e6e3f3); border: 1px solid rgba(83, 106, 157, 0.18); box-shadow: 0 8px 20px rgba(91, 113, 141, 0.12); }
+.status-pill { color: #526b70; background: rgba(252, 253, 255, 0.72); border-color: rgba(139, 160, 176, 0.25); box-shadow: 0 8px 24px rgba(96, 111, 139, 0.07); backdrop-filter: blur(14px); }
+.status-dot { background: #66a693; box-shadow: 0 0 0 4px rgba(102, 166, 147, 0.12); }
+
+.home-hero {
+  background:
+    radial-gradient(circle at 87% 17%, rgba(239, 190, 148, 0.46) 0 8%, transparent 8.4%),
+    radial-gradient(circle at 17% 82%, rgba(155, 207, 211, 0.38), transparent 34%),
+    linear-gradient(145deg, #edf4f7 0%, #efedf7 55%, #f7eee9 100%);
+  border: 1px solid rgba(117, 135, 158, 0.2);
+  box-shadow: var(--shadow-soft);
+}
+.home-kicker { color: #667fa0; }
+.home-kicker::before { background: #dda17d; }
+.home-hero h1 { color: #29364b; }
+.home-hero__portal { opacity: 0.97; filter: saturate(0.94) contrast(1.01); }
+.home-hero__spark { background: #e3a17c; opacity: 0.82; }
+.home-hero__spark--two { background: #8caebe; }
+
+.home-action {
+  background: rgba(253, 253, 255, 0.76);
+  border: 1px solid rgba(145, 157, 181, 0.22);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(16px);
+}
+.home-action:active { transform: translateY(1px); box-shadow: 0 7px 18px rgba(79, 94, 128, 0.1); }
+.home-action--primary { color: #fff; background: linear-gradient(125deg, #536a9d, #7186b0 58%, #7fa9ad); border-color: transparent; }
+.home-action--primary .home-action__icon { color: #405675; background: linear-gradient(145deg, #d7eee9, #f2e9dc); }
+.home-action__icon { color: #536a9d; background: linear-gradient(145deg, #e2e8f5, #e3f1ee); }
+.section-index { color: #c87960; }
+
+.theme-card--visual { border: 1px solid rgba(126, 144, 165, 0.16); box-shadow: 0 14px 34px rgba(78, 94, 124, 0.07); }
+.theme-card--visual::before { border-color: rgba(255, 255, 255, 0.38); }
+.theme-card--sky { color: #385667; background: linear-gradient(135deg, #dceff1, #e8eef6) !important; }
+.theme-card--apricot { color: #684b49; background: linear-gradient(135deg, #f6e8df, #eee8f2) !important; }
+.theme-card--mint { color: #365b57; background: linear-gradient(135deg, #dceee8, #e7edf4) !important; }
+.theme-card__arrow { color: #566b86; background: rgba(255, 255, 255, 0.68); box-shadow: 0 6px 18px rgba(77, 91, 116, 0.08); }
+
+.time-grid { background: rgba(225, 230, 242, 0.8); border: 1px solid rgba(154, 166, 190, 0.18); }
+.time-card--active { background: linear-gradient(145deg, #6177a5, #8397b8); box-shadow: 0 10px 24px rgba(83, 106, 157, 0.2); }
+.exhibit-card { border: 1px solid rgba(129, 145, 169, 0.2); box-shadow: var(--shadow-card); }
+.exhibit-card__era { background: rgba(71, 87, 119, 0.86); backdrop-filter: blur(8px); }
+
+.back-link { background: rgba(253, 253, 255, 0.74); border-color: rgba(141, 155, 180, 0.2); box-shadow: 0 7px 18px rgba(84, 99, 129, 0.06); }
+.recognize-hero { background: linear-gradient(140deg, #deefed, #e8e8f4 62%, #f5e9df); border: 1px solid rgba(124, 142, 164, 0.18); box-shadow: var(--shadow-card); }
+.recognize-hero__tag { color: #5c7194; background: rgba(255, 255, 255, 0.62); }
+.upload-panel { background: rgba(253, 253, 255, 0.82); border: 1px solid rgba(132, 149, 174, 0.2); box-shadow: var(--shadow-card); backdrop-filter: blur(14px); }
+.upload-placeholder { background: radial-gradient(circle at 50% 45%, #edf3f7, #f7f7fb 68%); }
+.upload-placeholder::after { background: linear-gradient(90deg, transparent, #7e9baa, transparent); box-shadow: 0 0 10px rgba(126, 155, 170, 0.7); }
+.capture-corner { border-color: #7895aa; }
+.camera-orbit { background: linear-gradient(145deg, #657ca4, #87aaa9); box-shadow: 0 0 0 10px rgba(111, 145, 159, 0.1); }
+.button--primary { background: linear-gradient(120deg, #536a9d, #7188ad); box-shadow: 0 9px 22px rgba(72, 91, 133, 0.2); }
+.button--primary:hover { background: linear-gradient(120deg, #485f91, #657ba3); }
+.button--primary:active { transform: translateY(1px); box-shadow: 0 5px 14px rgba(72, 91, 133, 0.2); }
+.button--quiet { color: #526994; background: rgba(235, 239, 248, 0.82); border-color: #d3dbea; }
+.process-card { background: linear-gradient(135deg, #f5e9df, #f1edf3); }
+.demo-label { color: #8a6458; background: rgba(255, 255, 255, 0.64); }
+.process-steps li > span { color: #6178a2; border-color: #c9d2e1; }
+.process-steps li.active > span, .process-steps li.done > span { background: #647ba4; border-color: #647ba4; }
+.recognition-summary { background: linear-gradient(135deg, #dfefed, #e9e8f3); border: 1px solid rgba(127, 144, 167, 0.18); box-shadow: var(--shadow-card); }
+.candidate-card--selected { border: 1px solid #8ca1bf; box-shadow: 0 14px 34px rgba(82, 105, 148, 0.12); }
+.bottom-nav { background: rgba(250, 251, 254, 0.88); border-color: rgba(164, 175, 197, 0.3); box-shadow: 0 -8px 26px rgba(66, 82, 112, 0.06); backdrop-filter: blur(18px); }
