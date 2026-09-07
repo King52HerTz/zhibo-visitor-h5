@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import silkBanner from '../assets/visuals/silk-banner.webp'
+import { createRecognition } from '../services/visitorGateway'
 
 const router = useRouter()
 const cameraInputRef = ref<HTMLInputElement | null>(null)
@@ -11,16 +12,30 @@ const file = ref<File | null>(null)
 const previewUrl = ref('')
 const processing = ref(false)
 const step = ref(0)
+const uploadProgress = ref(0)
+const errorMessage = ref('')
+let abortController: AbortController | null = null
 
 function handleFile(event: Event) {
   const target = event.target as HTMLInputElement
   const nextFile = target.files?.[0]
   if (!nextFile) return
-  if (!nextFile.type.startsWith('image/')) return
+  errorMessage.value = ''
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(nextFile.type)) {
+    errorMessage.value = '请选择 JPEG、PNG 或 WebP 图片。'
+    target.value = ''
+    return
+  }
+  if (nextFile.size > 8 * 1024 * 1024) {
+    errorMessage.value = '图片不能超过 8MB。'
+    target.value = ''
+    return
+  }
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   file.value = nextFile
   previewUrl.value = URL.createObjectURL(nextFile)
   step.value = 0
+  uploadProgress.value = 0
 }
 
 function clearPreview() {
@@ -35,19 +50,33 @@ function chooseImage(source: 'camera' | 'gallery') {
   input?.click()
 }
 
-function startRecognition() {
+async function startRecognition() {
   if (!file.value || processing.value) return
   processing.value = true
   step.value = 1
-  window.setTimeout(() => { step.value = 2 }, 650)
-  window.setTimeout(() => { step.value = 3 }, 1250)
-  window.setTimeout(() => {
+  uploadProgress.value = 0
+  errorMessage.value = ''
+  abortController?.abort()
+  abortController = new AbortController()
+  try {
+    const result = await createRecognition(file.value, (percent) => {
+      uploadProgress.value = percent
+      if (percent >= 100) step.value = 2
+    }, abortController.signal)
+    step.value = 3
+    await router.push(`/recognitions/${result.recognition_id}`)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    errorMessage.value = error instanceof Error ? error.message : '识别失败，请稍后重试。'
+    step.value = 0
+  } finally {
     processing.value = false
-    router.push('/recognitions/demo-recognition-001')
-  }, 1700)
+    abortController = null
+  }
 }
 
 onBeforeUnmount(() => {
+  abortController?.abort()
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
 })
 </script>
@@ -85,7 +114,13 @@ onBeforeUnmount(() => {
         <button type="button" class="button button--primary" @click="chooseImage('camera')"><AppIcon name="camera" :size="18" />{{ previewUrl ? '换一张照片' : '拍一张照片' }}</button>
         <button type="button" class="button button--quiet" @click="chooseImage('gallery')"><AppIcon name="upload" :size="18" />从相册选择</button>
       </div>
+      <div v-if="processing" class="upload-progress" aria-live="polite">
+        <div><span>上传图片</span><strong>{{ uploadProgress }}%</strong></div>
+        <span class="upload-progress__track"><i :style="{ width: `${uploadProgress}%` }" /></span>
+      </div>
     </section>
+
+    <p v-if="errorMessage" class="recognition-error" role="alert"><AppIcon name="info" :size="17" />{{ errorMessage }}</p>
 
     <div class="photo-guidance"><AppIcon name="info" :size="16" /><span>拍摄建议：光线均匀 · 尽量正对 · 避免遮挡 · 单张不超过 8MB</span></div>
 
@@ -101,7 +136,7 @@ onBeforeUnmount(() => {
     <button type="button" class="button button--primary button--full" :disabled="!file || processing" @click="startRecognition">
       <span v-if="processing" class="button-loader" />
       <AppIcon v-else name="spark" :size="18" />
-      {{ processing ? '正在查找馆方资料…' : '开始识别' }}
+      {{ processing ? (step === 1 ? '正在上传图片…' : '正在核验馆方资料…') : '开始识别' }}
     </button>
     <p class="privacy-note">图片仅用于本次识别，由游客网关处理；浏览器不会接触模型密钥。</p>
   </div>

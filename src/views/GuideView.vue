@@ -7,6 +7,7 @@ import { demoExhibits, demoQuestions } from '../mock/data'
 import { usePassport } from '../composables/usePassport'
 import type { GuideMode, Source } from '../types'
 import { streamGuide, type GatewayEvent } from '../services/visitorGateway'
+import silkBanner from '../assets/visuals/silk-banner.webp'
 
 type Message = { id: number; role: 'guide' | 'visitor'; text: string; sources?: Source[]; outcome?: string }
 
@@ -26,6 +27,7 @@ const exhibit = computed(() => {
   const id = typeof route.query.exhibit_id === 'string' ? route.query.exhibit_id : 'demo-su-sha'
   return demoExhibits.find((item) => item.id === id) ?? demoExhibits[0]
 })
+const recognizedName = computed(() => typeof route.query.recognized_name === 'string' ? route.query.recognized_name.slice(0, 80) : '')
 
 const modeMeta: Record<GuideMode, { label: string; hint: string }> = {
   quick: { label: '快速讲解', hint: '先听重点' },
@@ -58,10 +60,10 @@ async function sendQuestion(question = input.value) {
   try {
     await streamGuide(
       {
-        message: text,
+        message: recognizedName.value ? `关于候选展品“${recognizedName.value}”：${text}` : text,
         mode: selectedMode.value,
         museum: '湖南省博物馆',
-        exhibitId: exhibit.value.id,
+        exhibitId: recognizedName.value ? undefined : exhibit.value.id,
       },
       (event: GatewayEvent) => {
         if (event.type === 'status') loadingLabel.value = event.data.message || loadingLabel.value
@@ -116,13 +118,15 @@ onBeforeUnmount(() => abortController?.abort())
     <header class="guide-header">
       <button type="button" class="back-link" aria-label="返回展品详情" @click="router.back()"><AppIcon name="back" :size="21" /></button>
       <div class="guide-header__title"><span class="status-dot" /><div><p class="eyebrow">AI GUIDE · DEMO</p><h1>正在讲解</h1></div></div>
-      <button type="button" class="icon-button" :aria-label="isSaved(exhibit.id) ? '取消收藏' : '加入展册'" @click="toggle(exhibit, selectedMode)"><AppIcon :name="isSaved(exhibit.id) ? 'bookmark-filled' : 'bookmark'" :size="20" /></button>
+      <button v-if="!recognizedName" type="button" class="icon-button" :aria-label="isSaved(exhibit.id) ? '取消收藏' : '加入展册'" @click="toggle(exhibit, selectedMode)"><AppIcon :name="isSaved(exhibit.id) ? 'bookmark-filled' : 'bookmark'" :size="20" /></button>
+      <span v-else class="header-spacer" />
     </header>
 
     <section class="guide-context">
-      <div class="guide-context__image"><img :src="exhibit.image" :alt="`${exhibit.name} 演示图片`" /></div>
-      <div><span class="eyebrow">当前展品</span><h2>{{ exhibit.name }}</h2><p>{{ exhibit.era }} · {{ exhibit.category }}</p></div>
-      <RouterLink :to="`/exhibits/${exhibit.id}`" class="context-link" aria-label="查看展品详情"><AppIcon name="chevron-right" :size="18" /></RouterLink>
+      <div class="guide-context__image"><img :src="recognizedName ? silkBanner : exhibit.image" :alt="recognizedName ? '图片识别导览精灵' : `${exhibit.name} 演示图片`" /></div>
+      <div><span class="eyebrow">{{ recognizedName ? '你刚确认的候选' : '当前展品' }}</span><h2>{{ recognizedName || exhibit.name }}</h2><p>{{ recognizedName ? '来自图片识别 · 馆方资料核验' : `${exhibit.era} · ${exhibit.category}` }}</p></div>
+      <RouterLink v-if="!recognizedName" :to="`/exhibits/${exhibit.id}`" class="context-link" aria-label="查看展品详情"><AppIcon name="chevron-right" :size="18" /></RouterLink>
+      <span v-else class="header-spacer" />
     </section>
 
     <div class="mode-switcher" role="tablist" aria-label="讲解模式">
@@ -138,7 +142,7 @@ onBeforeUnmount(() => abortController?.abort())
       <div v-if="isSending" class="message message--guide"><div class="guide-avatar" aria-hidden="true">智</div><div class="message__bubble message__bubble--loading"><span class="button-loader" />{{ loadingLabel }}</div></div>
     </section>
 
-    <section class="observation-strip"><div class="observation-strip__title"><AppIcon name="eye" :size="18" /><strong>重点观察</strong></div><div class="observation-mini-list"><span v-for="(item, index) in exhibit.observations.slice(0, 2)" :key="item.title"><b>{{ index + 1 }}</b>{{ item.title }}</span></div></section>
+    <section v-if="!recognizedName" class="observation-strip"><div class="observation-strip__title"><AppIcon name="eye" :size="18" /><strong>重点观察</strong></div><div class="observation-mini-list"><span v-for="(item, index) in exhibit.observations.slice(0, 2)" :key="item.title"><b>{{ index + 1 }}</b>{{ item.title }}</span></div></section>
 
     <section class="guide-sources"><div class="section-heading section-heading--compact"><div><p class="eyebrow">WHY TRUST THIS</p><h2>馆方资料依据</h2></div><span v-if="latestSources.length" class="evidence-badge"><AppIcon name="check" :size="13" />已核验</span></div><SourceCard v-for="source in latestSources" :key="source.title" :source="source" /></section>
 

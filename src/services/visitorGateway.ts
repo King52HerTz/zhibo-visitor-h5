@@ -15,6 +15,28 @@ export type GatewayEvent = {
   }
 }
 
+export type RecognitionStatus = 'READY' | 'NOT_FOUND' | 'ERROR' | 'CONFIRMED'
+export type KnowledgeStatus = 'VERIFIED' | 'PARTIAL' | 'NOT_FOUND'
+
+export type RecognitionCandidate = {
+  candidate_id: string
+  name: string
+  confidence: number
+  visual_basis: string[]
+  knowledge_status: KnowledgeStatus
+  sources: GatewaySource[]
+}
+
+export type RecognitionResult = {
+  recognition_id: string
+  status: RecognitionStatus
+  observations: string[]
+  candidates: RecognitionCandidate[]
+  message: string
+  created_at: string
+  confirmed_candidate_id?: string
+}
+
 type GuideInput = {
   message: string
   mode: 'quick' | 'deep' | 'child'
@@ -123,4 +145,113 @@ export async function streamGuide(
     }
     throw error
   }
+}
+
+function gatewayError(status: number, body?: { detail?: string }) {
+  if (status === 401) return new Error('SESSION_EXPIRED')
+  if (status === 429) return new Error('访问有些频繁，请稍后再试。')
+  return new Error(typeof body?.detail === 'string' ? body.detail : '游客网关暂时不可用')
+}
+
+function uploadOnce(
+  sessionId: string,
+  file: File,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+) {
+  return new Promise<RecognitionResult>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'))
+      return
+    }
+    const request = new XMLHttpRequest()
+    const onAbort = () => request.abort()
+    request.open('POST', `${baseUrl}/recognitions`)
+    request.setRequestHeader('X-Visitor-Session', sessionId)
+    request.responseType = 'json'
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100))
+    }
+    request.onload = () => {
+      signal?.removeEventListener('abort', onAbort)
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100)
+        resolve(request.response as RecognitionResult)
+        return
+      }
+      reject(gatewayError(request.status, request.response as { detail?: string }))
+    }
+    request.onerror = () => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(new Error('无法连接游客网关'))
+    }
+    request.onabort = () => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    const form = new FormData()
+    form.append('image', file, file.name)
+    request.send(form)
+  })
+}
+
+export async function createRecognition(
+  file: File,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+) {
+  let sessionId = await ensureSession(signal)
+  try {
+    return await uploadOnce(sessionId, file, onProgress, signal)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
+      window.sessionStorage.removeItem(sessionStorageKey)
+      sessionId = await createSession(signal)
+      return uploadOnce(sessionId, file, onProgress, signal)
+    }
+    throw error
+  }
+}
+
+async function recognitionRequest(path: string, init: RequestInit, signal?: AbortSignal) {
+  const request = async (sessionId: string) => {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Visitor-Session': sessionId,
+        ...init.headers,
+      },
+      signal,
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => undefined) as { detail?: string } | undefined
+      throw gatewayError(response.status, body)
+    }
+    return response.json() as Promise<RecognitionResult>
+  }
+  let sessionId = await ensureSession(signal)
+  try {
+    return await request(sessionId)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
+      window.sessionStorage.removeItem(sessionStorageKey)
+      sessionId = await createSession(signal)
+      return request(sessionId)
+    }
+    throw error
+  }
+}
+
+export function getRecognition(recognitionId: string, signal?: AbortSignal) {
+  return recognitionRequest(`/recognitions/${encodeURIComponent(recognitionId)}`, { method: 'GET' }, signal)
+}
+
+export function confirmRecognition(recognitionId: string, candidateId: string, signal?: AbortSignal) {
+  return recognitionRequest(
+    `/recognitions/${encodeURIComponent(recognitionId)}/confirm`,
+    { method: 'POST', body: JSON.stringify({ candidate_id: candidateId }) },
+    signal,
+  )
 }
