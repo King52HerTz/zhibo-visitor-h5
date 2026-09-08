@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 GuideMode = Literal["quick", "deep", "child"]
@@ -58,38 +58,50 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     upstream: Literal["configured", "not_configured"]
     recognition: Literal["configured", "not_configured"]
-    version: str = "stage-4"
+    catalog: Literal["configured", "bundled"] = "bundled"
+    version: str = "stage-5"
 
 
 class CatalogObservation(BaseModel):
-    title: str
-    detail: str
+    title: str = Field(min_length=1, max_length=120)
+    detail: str = Field(min_length=1, max_length=800)
 
 
 class CatalogSource(BaseModel):
-    title: str
-    page: str | None = None
-    excerpt: str
+    title: str = Field(min_length=1, max_length=200)
+    page: str | None = Field(default=None, max_length=80)
+    excerpt: str = Field(min_length=1, max_length=1200)
     status: Literal["verified", "interpretation", "missing"] = "verified"
 
 
 class CatalogExhibit(BaseModel):
-    id: str
-    name: str
-    era: str
-    material: str
-    category: str
-    summary: str
-    image_key: str
-    tags: list[str] = Field(default_factory=list)
-    observations: list[CatalogObservation] = Field(default_factory=list)
-    sources: list[CatalogSource] = Field(default_factory=list)
+    id: str = Field(min_length=1, max_length=120, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=120)
+    era: str = Field(min_length=1, max_length=80)
+    material: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    summary: str = Field(min_length=1, max_length=1200)
+    image_key: str = Field(default="", max_length=80, pattern=r"^[a-zA-Z0-9_-]*$")
+    image_url: str | None = Field(default=None, max_length=1000)
+    image_sha256: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{64}$")
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    observations: list[CatalogObservation] = Field(default_factory=list, max_length=12)
+    sources: list[CatalogSource] = Field(default_factory=list, min_length=1, max_length=12)
+
+    @model_validator(mode="after")
+    def validate_image(self):
+        if not self.image_key and not self.image_url:
+            raise ValueError("展品必须提供图片标识或公开图片地址")
+        if self.image_url and not (self.image_url.startswith("https://") or self.image_url.startswith("/")):
+            raise ValueError("公开图片地址只允许 HTTPS 或站内相对路径")
+        return self
 
 
 class CatalogResponse(BaseModel):
-    version: str
-    published_at: str
-    exhibits: list[CatalogExhibit]
+    version: str = Field(min_length=1, max_length=120)
+    published_at: str = Field(min_length=1, max_length=80)
+    content_source: Literal["bundled", "remote"] = "bundled"
+    exhibits: list[CatalogExhibit] = Field(min_length=1, max_length=200)
 
 
 class PublicEvent(BaseModel):

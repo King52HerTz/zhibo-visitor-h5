@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import time
 
+import httpx
+from pydantic import ValidationError
+
+from .config import Settings
 from .models import CatalogExhibit, CatalogResponse
 
 
@@ -67,3 +73,65 @@ def published_catalog() -> CatalogResponse:
         published_at=_PUBLISHED_AT,
         exhibits=[CatalogExhibit.model_validate(item) for item in _EXHIBITS],
     )
+
+
+class CatalogProvider:
+    def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
+        self.settings = settings
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0)
+        )
+        self._catalog = published_catalog()
+        self._upstream_etag = ""
+        self._next_refresh_at = 0.0
+        self._lock = asyncio.Lock()
+
+    async def close(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    @property
+    def source(self) -> str:
+        return self._catalog.content_source
+
+    async def current(self) -> CatalogResponse:
+        if not self.settings.catalog_configured or time.monotonic() < self._next_refresh_at:
+            return self._catalog
+        async with self._lock:
+            if time.monotonic() < self._next_refresh_at:
+                return self._catalog
+            await self._refresh()
+        return self._catalog
+
+    async def _refresh(self) -> None:
+        headers = {"Accept": "application/json"}
+        if self.settings.catalog_api_key:
+            headers["Authorization"] = f"Bearer {self.settings.catalog_api_key}"
+        if self._upstream_etag:
+            headers["If-None-Match"] = self._upstream_etag
+        try:
+            response = await self._client.get(self.settings.catalog_url, headers=headers)
+            if response.status_code == 304:
+                return
+            response.raise_for_status()
+            raw_catalog = response.json()
+            if not isinstance(raw_catalog, dict) or not isinstance(raw_catalog.get("exhibits"), list):
+                raise ValueError("目录结构无效")
+            for item in raw_catalog["exhibits"]:
+                if not isinstance(item, dict):
+                    raise ValueError("展品结构无效")
+                publication = item.get("publication_status", item.get("status"))
+                if publication is not None and str(publication).lower() != "published":
+                    raise ValueError("公开目录包含未发布内容")
+            candidate = CatalogResponse.model_validate({**raw_catalog, "content_source": "remote"})
+            identifiers = [item.id for item in candidate.exhibits]
+            if len(identifiers) != len(set(identifiers)):
+                raise ValueError("目录包含重复展品编号")
+            self._catalog = candidate
+            self._upstream_etag = response.headers.get("ETag") or f'"{candidate.version}"'
+        except (httpx.HTTPError, ValueError, ValidationError):
+            # 保留最后一次完整有效目录，不向游客暴露上游错误和认证细节。
+            pass
+        finally:
+            self._next_refresh_at = time.monotonic() + self.settings.catalog_refresh_seconds

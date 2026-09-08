@@ -28,6 +28,9 @@ class Settings:
     recognition_timeout_seconds: int = 45
     max_image_bytes: int = 8 * 1024 * 1024
     recognition_temp_dir: str = ""
+    catalog_url: str = ""
+    catalog_api_key: str = ""
+    catalog_refresh_seconds: int = 60
     cors_origins: tuple[str, ...] = ("http://localhost:8020", "http://127.0.0.1:8020")
 
     @classmethod
@@ -56,6 +59,9 @@ class Settings:
             recognition_timeout_seconds=_int_env("VISITOR_RECOGNITION_TIMEOUT_SECONDS", 45),
             max_image_bytes=_int_env("VISITOR_MAX_IMAGE_BYTES", 8 * 1024 * 1024, 1024),
             recognition_temp_dir=os.getenv("VISITOR_RECOGNITION_TEMP_DIR", "").strip(),
+            catalog_url=os.getenv("MUSEUM_CATALOG_URL", "").strip(),
+            catalog_api_key=os.getenv("MUSEUM_CATALOG_API_KEY", "").strip(),
+            catalog_refresh_seconds=_int_env("VISITOR_CATALOG_REFRESH_SECONDS", 60),
             cors_origins=origins,
         )
 
@@ -72,3 +78,7 @@ class Settings:
             and self.visual_model_api_key
             and self.visual_model_name
         )
+
+    @property
+    def catalog_configured(self) -> bool:
+        return bool(self.catalog_url)

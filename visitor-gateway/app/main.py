@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .config import Settings
-from .catalog import published_catalog
+from .catalog import CatalogProvider
 from .models import (
     CatalogExhibit,
     CatalogResponse,
@@ -53,6 +53,7 @@ def create_app(
     settings: Settings | None = None,
     upstream: StableMuseumClient | None = None,
     recognition_service: RecognitionService | None = None,
+    catalog_provider: CatalogProvider | None = None,
 ) -> FastAPI:
     config = settings or Settings.from_env()
     sessions = SessionStore(config.session_ttl_seconds)
@@ -60,8 +61,7 @@ def create_app(
     guide_slots = asyncio.Semaphore(config.max_concurrent_guides)
     client = upstream or StableMuseumClient(config)
     recognizer = recognition_service or RecognitionService(config)
-    catalog = published_catalog()
-    catalog_etag = f'"{catalog.version}"'
+    catalogs = catalog_provider or CatalogProvider(config)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -70,10 +70,12 @@ def create_app(
             await client.close()
         if recognition_service is None:
             await recognizer.close()
+        if catalog_provider is None:
+            await catalogs.close()
 
     app = FastAPI(
         title="智博导览游客网关",
-        version="0.2.0",
+        version="0.3.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -84,7 +86,7 @@ def create_app(
         allow_origins=list(config.cors_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", SESSION_HEADER],
+        allow_headers=["Content-Type", "If-None-Match", SESSION_HEADER],
     )
 
     def require_session(request: Request, session_id: str):
@@ -102,10 +104,13 @@ def create_app(
             status="ok",
             upstream="configured" if config.upstream_configured else "not_configured",
             recognition="configured" if config.recognition_configured else "not_configured",
+            catalog="configured" if config.catalog_configured else "bundled",
         )
 
     @app.get(f"{PREFIX}/catalog", response_model=CatalogResponse)
     async def get_catalog(request: Request) -> CatalogResponse | Response:
+        catalog = await catalogs.current()
+        catalog_etag = f'"{catalog.version}"'
         if request.headers.get("If-None-Match") == catalog_etag:
             return Response(status_code=304, headers={"ETag": catalog_etag})
         return Response(
@@ -116,6 +121,7 @@ def create_app(
 
     @app.get(f"{PREFIX}/exhibits/{{exhibit_id}}", response_model=CatalogExhibit)
     async def get_exhibit(exhibit_id: str) -> CatalogExhibit:
+        catalog = await catalogs.current()
         exhibit = next((item for item in catalog.exhibits if item.id == exhibit_id), None)
         if exhibit is None:
             raise HTTPException(status_code=404, detail="展品不存在或尚未发布")

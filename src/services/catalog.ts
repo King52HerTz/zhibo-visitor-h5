@@ -9,11 +9,13 @@ type CatalogStatus = 'bundled' | 'syncing' | 'fresh' | 'cached' | 'error'
 type CatalogSource = Omit<Source, 'page'> & { page?: string | number }
 type CatalogExhibit = Omit<Exhibit, 'image' | 'sourceTitle' | 'sources'> & {
   image_key: string
+  image_url?: string
   sources: CatalogSource[]
 }
 type CatalogPayload = {
   version: string
   published_at: string
+  content_source: 'bundled' | 'remote'
   exhibits: CatalogExhibit[]
 }
 
@@ -33,6 +35,7 @@ function isCatalogPayload(value: unknown): value is CatalogPayload {
   const payload = value as Partial<CatalogPayload>
   return typeof payload.version === 'string'
     && typeof payload.published_at === 'string'
+    && (payload.content_source === 'bundled' || payload.content_source === 'remote')
     && Array.isArray(payload.exhibits)
     && payload.exhibits.length > 0
     && payload.exhibits.every((item) => item && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.image_key === 'string' && Array.isArray(item.observations) && Array.isArray(item.sources))
@@ -46,7 +49,7 @@ function toExhibits(payload: CatalogPayload): Exhibit[] {
     material: item.material,
     category: item.category,
     summary: item.summary,
-    image: imageMap[item.image_key] || silkImage,
+    image: item.image_url || imageMap[item.image_key] || silkImage,
     tags: item.tags,
     observations: item.observations,
     sourceTitle: item.sources[0]?.title || '暂无公开来源',
@@ -68,6 +71,7 @@ const initialCache = loadCache()
 const exhibits = ref<Exhibit[]>(initialCache ? toExhibits(initialCache) : bundledExhibits())
 const version = ref(initialCache?.version || '')
 const publishedAt = ref(initialCache?.published_at || '')
+const contentSource = ref<'bundled' | 'remote'>(initialCache?.content_source || 'bundled')
 const status = ref<CatalogStatus>(initialCache ? 'cached' : 'bundled')
 const isOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
 let syncPromise: Promise<void> | null = null
@@ -95,6 +99,7 @@ export function syncCatalog(force = false): Promise<void> {
       exhibits.value = nextExhibits
       version.value = payload.version
       publishedAt.value = payload.published_at
+      contentSource.value = payload.content_source
       status.value = 'fresh'
     } catch {
       status.value = previousStatus === 'cached' || version.value ? 'cached' : 'error'
@@ -115,7 +120,7 @@ export function useCatalog() {
   const contentLabel = computed(() => {
     if (!isOnline.value) return '离线浏览 · 最近内容'
     if (status.value === 'syncing') return '正在同步馆藏'
-    if (status.value === 'fresh') return '馆藏已是最新'
+    if (status.value === 'fresh') return contentSource.value === 'remote' ? '馆藏已是最新' : '使用内置首版'
     if (status.value === 'cached') return '使用本机缓存'
     return '使用内置首版'
   })
@@ -142,6 +147,7 @@ export function useCatalog() {
     isOnline,
     version,
     publishedAt,
+    contentSource,
     contentLabel,
     sync: syncCatalog,
   }
