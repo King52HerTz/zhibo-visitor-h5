@@ -544,6 +544,12 @@ h1, h2, h3 { font-family: 'Noto Serif SC', 'Songti SC', serif; font-weight: 700;
 .offline-page h1 { margin-top: 9px; font-size: 27px; }
 .offline-page > p:not(.eyebrow) { max-width: 290px; margin-top: 12px; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
 .offline-actions { display: grid; width: min(100%, 300px); gap: 9px; margin-top: 24px; }
+.offline-cache-label { margin-top: 14px; padding: 7px 11px; color: #526b70; background: var(--sage-soft); border-radius: 999px; font-size: 12px; font-weight: 700; }
+
+.catalog-status { position: fixed; z-index: 11; bottom: max(88px, calc(env(safe-area-inset-bottom) + 78px)); left: 50%; display: flex; min-height: 28px; align-items: center; gap: 6px; padding: 5px 9px; color: #657287; background: rgba(250, 251, 254, 0.84); border: 1px solid rgba(151, 165, 188, 0.22); border-radius: 999px; box-shadow: 0 7px 20px rgba(73, 88, 118, 0.08); font-size: 10px; font-weight: 700; transform: translateX(-50%); backdrop-filter: blur(14px); }
+.catalog-status:disabled { cursor: wait; opacity: 0.75; }
+.catalog-status__dot { width: 6px; height: 6px; background: #6ca99b; border-radius: 50%; box-shadow: 0 0 0 3px rgba(108, 169, 155, 0.13); }
+.catalog-status.is-offline .catalog-status__dot { background: #d18d72; box-shadow: 0 0 0 3px rgba(209, 141, 114, 0.14); }
 
 @media (min-width: 560px) {
   .page { padding-right: 28px; padding-left: 28px; }

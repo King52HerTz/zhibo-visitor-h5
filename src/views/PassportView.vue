@@ -2,11 +2,12 @@
 import { computed } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import ExhibitCard from '../components/ExhibitCard.vue'
-import { demoExhibits } from '../mock/data'
+import { useCatalog } from '../services/catalog'
 import { usePassport } from '../composables/usePassport'
 
 const { entries, count, clear } = usePassport()
-const savedExhibits = computed(() => entries.value.map((entry) => demoExhibits.find((exhibit) => exhibit.id === entry.exhibitId)).filter(Boolean))
+const { exhibits } = useCatalog()
+const savedExhibits = computed(() => entries.value.map((entry) => exhibits.value.find((exhibit) => exhibit.id === entry.exhibitId)).filter(Boolean))
 const interests = computed(() => [...new Set(savedExhibits.value.flatMap((exhibit) => exhibit?.tags ?? []))].slice(0, 3))
 
 function clearPassport() {

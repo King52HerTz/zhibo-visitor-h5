@@ -13,6 +13,7 @@ type IconName =
   | 'home'
   | 'info'
   | 'route'
+  | 'refresh'
   | 'search'
   | 'send'
   | 'spark'
@@ -52,6 +53,7 @@ const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), {
     <g v-else-if="props.name === 'eye'"><path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z" /><circle cx="12" cy="12" r="2.2" /></g>
     <g v-else-if="props.name === 'info'"><circle cx="12" cy="12" r="9" /><path d="M12 10v6m0-9h.01" /></g>
     <path v-else-if="props.name === 'route'" d="M5 4h.01M19 20h.01M5 4c8 0 2 8 14 8M5 4v6m14 2v8" />
+    <path v-else-if="props.name === 'refresh'" d="M20 7v5h-5M4 17v-5h5m10.2-4A8 8 0 0 0 6 5.5L4 8m16 8-2 2.5A8 8 0 0 1 4.8 16" />
     <g v-else-if="props.name === 'search'"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></g>
     <path v-else-if="props.name === 'send'" d="m3 11 18-8-8 18-2.2-7.8zM10.8 13.2 21 3" />
     <path v-else-if="props.name === 'trash'" d="M4 7h16m-10 4v6m4-6v6M9 7V4h6v3m-9 0 1 14h10l1-14" />

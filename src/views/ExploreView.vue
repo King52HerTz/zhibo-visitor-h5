@@ -2,12 +2,13 @@
 import { computed, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import ExhibitCard from '../components/ExhibitCard.vue'
-import { demoExhibits, demoThemes } from '../mock/data'
+import { useCatalog } from '../services/catalog'
 
 const query = ref('')
 const selectedTheme = ref('全部')
-const filters = computed(() => ['全部', ...demoThemes.map((theme) => theme.name)])
-const filteredExhibits = computed(() => demoExhibits.filter((exhibit) => {
+const { exhibits, themes, contentLabel } = useCatalog()
+const filters = computed(() => ['全部', ...themes.value])
+const filteredExhibits = computed(() => exhibits.value.filter((exhibit) => {
   const matchesTheme = selectedTheme.value === '全部' || exhibit.tags.includes(selectedTheme.value)
   const text = `${exhibit.name}${exhibit.category}${exhibit.summary}`
   return matchesTheme && (!query.value.trim() || text.includes(query.value.trim()))
@@ -39,8 +40,8 @@ const filteredExhibits = computed(() => demoExhibits.filter((exhibit) => {
 
     <section class="result-section" aria-live="polite">
       <div class="section-heading section-heading--compact">
-        <div><p class="eyebrow">DEMO COLLECTION</p><h2>{{ filteredExhibits.length }} 件展品</h2></div>
-        <span class="small-muted">已发布资料演示</span>
+        <div><p class="eyebrow">COLLECTION CATALOG</p><h2>{{ filteredExhibits.length }} 件展品</h2></div>
+        <span class="small-muted">{{ contentLabel }}</span>
       </div>
       <div v-if="filteredExhibits.length" class="exhibit-list">
         <ExhibitCard v-for="exhibit in filteredExhibits" :key="exhibit.id" :exhibit="exhibit" compact />

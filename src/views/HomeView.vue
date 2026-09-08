@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppIcon from '../components/AppIcon.vue'
 import ExhibitCard from '../components/ExhibitCard.vue'
-import { demoExhibits } from '../mock/data'
+import { useCatalog } from '../services/catalog'
 import museumPortal from '../assets/visuals/museum-portal.webp'
 import silkBanner from '../assets/visuals/silk-banner.webp'
 import gauzeRobe from '../assets/visuals/gauze-robe.webp'
@@ -12,6 +12,7 @@ const visualThemes = [
   { name: '素纱的轻盈', description: '沿着材质与织造，读懂一件衣服', image: gauzeRobe, tone: 'apricot' },
   { name: '漆器的流云', description: '在黑地与云气纹里寻找观看线索', image: lacquerCup, tone: 'mint' },
 ]
+const { exhibits, contentLabel } = useCatalog()
 </script>
 
 <template>
@@ -71,11 +72,11 @@ const visualThemes = [
     <section class="section-block section-block--last" aria-labelledby="recommend-title">
       <div class="section-heading">
         <div><p class="section-index">03 · 今日一件</p><h2 id="recommend-title">停下来，仔细看</h2></div>
-        <span class="small-muted">演示展品</span>
+        <span class="small-muted">{{ contentLabel }}</span>
       </div>
-      <ExhibitCard :exhibit="demoExhibits[0]" />
+      <ExhibitCard v-if="exhibits[0]" :exhibit="exhibits[0]" />
     </section>
 
-    <p class="demo-note demo-note--home"><AppIcon name="info" :size="16" />当前内容为交互演示，正式讲解以可追溯馆方资料为准。</p>
+    <p class="demo-note demo-note--home"><AppIcon name="info" :size="16" />当前为首版内容目录，正式讲解以可追溯馆方资料为准。</p>
   </div>
 </template>

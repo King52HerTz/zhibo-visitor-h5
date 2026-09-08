@@ -3,7 +3,7 @@ import silkImage from '../assets/exhibits/silk.svg'
 import lacquerImage from '../assets/exhibits/lacquer.svg'
 import silkBookImage from '../assets/exhibits/silk-book.svg'
 
-// 阶段 1 仅使用演示数据；接入游客网关前不得把这里当作正式馆藏数据源。
+// 仅作为首次打开和完全离线时的内置首版；联网后由游客网关目录替换。
 export const demoExhibits: Exhibit[] = [
   {
     id: 'demo-su-sha',

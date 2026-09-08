@@ -3,14 +3,15 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import SourceCard from '../components/SourceCard.vue'
-import { demoExhibits, demoSources } from '../mock/data'
+import { useCatalog } from '../services/catalog'
 import { usePassport } from '../composables/usePassport'
 import type { GuideMode } from '../types'
 
 const route = useRoute()
 const router = useRouter()
 const { isSaved, toggle } = usePassport()
-const exhibit = computed(() => demoExhibits.find((item) => item.id === route.params.id) ?? demoExhibits[0])
+const { exhibits } = useCatalog()
+const exhibit = computed(() => exhibits.value.find((item) => item.id === route.params.id) ?? exhibits.value[0])
 
 function openGuide(mode: GuideMode) {
   router.push({ name: 'guide', query: { exhibit_id: exhibit.value.id, mode } })
@@ -26,7 +27,7 @@ function openGuide(mode: GuideMode) {
     </header>
 
     <section class="exhibit-hero">
-      <div class="exhibit-hero__visual"><img :src="exhibit.image" :alt="`${exhibit.name} 演示图片`" /><span class="exhibit-hero__tag">演示展品</span></div>
+      <div class="exhibit-hero__visual"><img :src="exhibit.image" :alt="`${exhibit.name} 展品图片`" /><span class="exhibit-hero__tag">馆藏目录</span></div>
       <div class="exhibit-hero__meta"><span>{{ exhibit.era }}</span><i /> <span>{{ exhibit.material }}</span><i /> <span>{{ exhibit.category }}</span></div>
       <h2>{{ exhibit.name }}</h2>
       <p>{{ exhibit.summary }}</p>
@@ -52,7 +53,7 @@ function openGuide(mode: GuideMode) {
       </div>
     </section>
 
-    <section class="source-section"><div class="section-heading section-heading--compact"><div><p class="eyebrow">PUBLIC EVIDENCE</p><h2>馆方资料依据</h2></div><RouterLink to="/about/sources" class="text-link">说明 <AppIcon name="arrow-right" :size="15" /></RouterLink></div><SourceCard v-for="source in demoSources" :key="source.title" :source="source" /></section>
+    <section class="source-section"><div class="section-heading section-heading--compact"><div><p class="eyebrow">PUBLIC EVIDENCE</p><h2>馆方资料依据</h2></div><RouterLink to="/about/sources" class="text-link">说明 <AppIcon name="arrow-right" :size="15" /></RouterLink></div><SourceCard v-for="source in exhibit.sources" :key="source.title" :source="source" /></section>
     <RouterLink to="/explore" class="button button--quiet button--full">继续探索相关展品 <AppIcon name="arrow-right" :size="17" /></RouterLink>
   </div>
 </template>

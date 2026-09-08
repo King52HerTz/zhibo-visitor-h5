@@ -8,7 +8,7 @@ defineProps<{ exhibit: Exhibit; compact?: boolean }>()
 <template>
   <RouterLink :to="`/exhibits/${exhibit.id}`" class="exhibit-card" :class="{ 'exhibit-card--compact': compact }">
     <div class="exhibit-card__visual">
-      <img :src="exhibit.image" :alt="`${exhibit.name} 演示图片`" loading="lazy" />
+      <img :src="exhibit.image" :alt="`${exhibit.name} 展品图片`" loading="lazy" />
       <span class="exhibit-card__era">{{ exhibit.era }}</span>
     </div>
     <div class="exhibit-card__body">

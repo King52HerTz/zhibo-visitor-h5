@@ -3,7 +3,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import SourceCard from '../components/SourceCard.vue'
-import { demoExhibits, demoQuestions } from '../mock/data'
+import { demoQuestions } from '../mock/data'
+import { useCatalog } from '../services/catalog'
 import { usePassport } from '../composables/usePassport'
 import type { GuideMode, Source } from '../types'
 import { streamGuide, type GatewayEvent } from '../services/visitorGateway'
@@ -14,6 +15,7 @@ type Message = { id: number; role: 'guide' | 'visitor'; text: string; sources?: 
 const route = useRoute()
 const router = useRouter()
 const { toggle, isSaved } = usePassport()
+const { exhibits } = useCatalog()
 const selectedMode = ref<GuideMode>((route.query.mode as GuideMode) || 'quick')
 const input = ref('')
 const isSending = ref(false)
@@ -25,7 +27,7 @@ let nextMessageId = 2
 
 const exhibit = computed(() => {
   const id = typeof route.query.exhibit_id === 'string' ? route.query.exhibit_id : 'demo-su-sha'
-  return demoExhibits.find((item) => item.id === id) ?? demoExhibits[0]
+  return exhibits.value.find((item) => item.id === id) ?? exhibits.value[0]
 })
 const recognizedName = computed(() => typeof route.query.recognized_name === 'string' ? route.query.recognized_name.slice(0, 80) : '')
 

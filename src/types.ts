@@ -14,6 +14,7 @@ export type Exhibit = {
     detail: string
   }>
   sourceTitle: string
+  sources?: Source[]
 }
 
 export type Source = {
