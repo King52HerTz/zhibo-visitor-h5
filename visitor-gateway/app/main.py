@@ -10,7 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .config import Settings
+from .catalog import published_catalog
 from .models import (
+    CatalogExhibit,
+    CatalogResponse,
     GuideRequest,
     HealthResponse,
     RecognitionConfirmRequest,
@@ -57,6 +60,8 @@ def create_app(
     guide_slots = asyncio.Semaphore(config.max_concurrent_guides)
     client = upstream or StableMuseumClient(config)
     recognizer = recognition_service or RecognitionService(config)
+    catalog = published_catalog()
+    catalog_etag = f'"{catalog.version}"'
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -99,6 +104,23 @@ def create_app(
             recognition="configured" if config.recognition_configured else "not_configured",
         )
 
+    @app.get(f"{PREFIX}/catalog", response_model=CatalogResponse)
+    async def get_catalog(request: Request) -> CatalogResponse | Response:
+        if request.headers.get("If-None-Match") == catalog_etag:
+            return Response(status_code=304, headers={"ETag": catalog_etag})
+        return Response(
+            content=catalog.model_dump_json(),
+            media_type="application/json",
+            headers={"ETag": catalog_etag, "Cache-Control": "public, max-age=60"},
+        )
+
+    @app.get(f"{PREFIX}/exhibits/{{exhibit_id}}", response_model=CatalogExhibit)
+    async def get_exhibit(exhibit_id: str) -> CatalogExhibit:
+        exhibit = next((item for item in catalog.exhibits if item.id == exhibit_id), None)
+        if exhibit is None:
+            raise HTTPException(status_code=404, detail="展品不存在或尚未发布")
+        return exhibit
+
     @app.post(f"{PREFIX}/sessions", response_model=SessionResponse, status_code=201)
     async def create_session(request: Request, _: SessionCreateRequest) -> SessionResponse:
         allowed, retry_after = limiter.allow(_client_key(request))
@@ -112,7 +134,7 @@ def create_app(
         return SessionResponse(
             session_id=session.session_id,
             expires_at=session.expires_at,
-            capabilities={"guide_stream": True, "recognition": config.recognition_configured, "exhibits": False},
+            capabilities={"guide_stream": True, "recognition": config.recognition_configured, "exhibits": True},
         )
 
     def require_header_session(request: Request):

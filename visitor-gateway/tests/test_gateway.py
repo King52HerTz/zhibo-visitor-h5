@@ -45,6 +45,31 @@ class FakeUpstream:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_catalog_supports_versioned_refresh_and_only_public_fields(self):
+        app = create_app(Settings(), upstream=FakeUpstream())
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/visitor/v1/catalog")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()["exhibits"]), 3)
+            self.assertTrue(response.headers["etag"])
+            self.assertNotIn("draft", response.text)
+            self.assertNotIn("internal", response.text)
+
+            unchanged = await client.get(
+                "/api/visitor/v1/catalog",
+                headers={"If-None-Match": response.headers["etag"]},
+            )
+            self.assertEqual(unchanged.status_code, 304)
+            self.assertEqual(unchanged.content, b"")
+
+            detail = await client.get("/api/visitor/v1/exhibits/demo-su-sha")
+            self.assertEqual(detail.status_code, 200)
+            self.assertEqual(detail.json()["name"], "素纱单衣")
+
+            unpublished = await client.get("/api/visitor/v1/exhibits/not-published")
+            self.assertEqual(unpublished.status_code, 404)
+
     async def test_session_is_required_and_stream_is_publicly_sanitized(self):
         app = create_app(
             Settings(

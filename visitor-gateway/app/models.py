@@ -58,7 +58,38 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     upstream: Literal["configured", "not_configured"]
     recognition: Literal["configured", "not_configured"]
-    version: str = "stage-3"
+    version: str = "stage-4"
+
+
+class CatalogObservation(BaseModel):
+    title: str
+    detail: str
+
+
+class CatalogSource(BaseModel):
+    title: str
+    page: str | None = None
+    excerpt: str
+    status: Literal["verified", "interpretation", "missing"] = "verified"
+
+
+class CatalogExhibit(BaseModel):
+    id: str
+    name: str
+    era: str
+    material: str
+    category: str
+    summary: str
+    image_key: str
+    tags: list[str] = Field(default_factory=list)
+    observations: list[CatalogObservation] = Field(default_factory=list)
+    sources: list[CatalogSource] = Field(default_factory=list)
+
+
+class CatalogResponse(BaseModel):
+    version: str
+    published_at: str
+    exhibits: list[CatalogExhibit]
 
 
 class PublicEvent(BaseModel):
