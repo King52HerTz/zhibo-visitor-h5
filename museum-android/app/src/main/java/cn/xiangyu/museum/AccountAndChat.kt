@@ -2,12 +2,13 @@ package cn.xiangyu.museum
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
@@ -22,41 +23,34 @@ fun AccountContent(state: MuseumState, onSubmit: (String, String, String, Boolea
     var endpoint by remember(state.endpoint) { mutableStateOf(state.endpoint) }
     var connectionSettings by remember(state.endpoint) { mutableStateOf(state.endpoint.isBlank()) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Space.medium)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("湘遇", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
-            Text("文物旅行记 / 第一页", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.small)) {
-                Text("翻开你的\n文物旅行记", style = MaterialTheme.typography.headlineLarge)
-                Text("和阿帛一起，\n发现两千年前的生活。", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Image(painterResource(R.drawable.abo), contentDescription = "阿帛挥手邀请你开始旅行",
-                modifier = Modifier.weight(0.8f).height(Space.touch * 3))
-        }
+        AuthHero()
         if (state.restoring) {
-            CircularProgressIndicator()
-            Text("正在恢复登录")
+            Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = Space.small / 2) {
+                Row(Modifier.padding(Space.large), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Space.medium)) {
+                    CircularProgressIndicator(Modifier.size(Space.large))
+                    Text("正在找回你的旅行手帐", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
         } else {
-            Surface(shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(Space.small / 8, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))) {
-                Column(Modifier.padding(Space.large), verticalArrangement = Arrangement.spacedBy(Space.medium)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                        listOf(false to "登录", true to "注册").forEach { (value, label) ->
-                            TextButton(onClick = { register = value; password = "" }, enabled = !state.authBusy,
-                                modifier = Modifier.weight(1f).heightIn(min = Space.touch)
-                                    .semantics { selected = register == value },
-                                colors = ButtonDefaults.textButtonColors(
-                                    containerColor = if (register == value) MaterialTheme.colorScheme.surfaceVariant
-                                        else androidx.compose.ui.graphics.Color.Transparent)) { Text(label) }
-                        }
+            Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surface, tonalElevation = Space.small / 2,
+                shadowElevation = Space.small / 2) {
+                Column(Modifier.padding(horizontal = Space.large, vertical = Space.medium),
+                    verticalArrangement = Arrangement.spacedBy(Space.small + Space.small / 2)) {
+                    AuthModeSwitcher(register = register, enabled = !state.authBusy, onChange = {
+                        register = it
+                        password = ""
+                    })
+                    Column(verticalArrangement = Arrangement.spacedBy(Space.small / 2)) {
+                        Text(if (register) "创建你的旅行手帐" else "欢迎回来",
+                            modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+                        Text(if (register) "只需账号和密码，稍后再选择儿童或成人模式"
+                            else "登录后继续上次的故事和对话",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(if (register) "领取一本属于你的手帐" else "欢迎回到你的旅行手帐",
-                        style = MaterialTheme.typography.titleMedium)
                     MuseumField(username, { username = it }, "账号", enabled = !state.authBusy)
                     MuseumField(password, { password = it }, "密码", password = true, enabled = !state.authBusy)
                     state.error?.let { MuseumNotice(it, error = true) }
@@ -68,20 +62,70 @@ fun AccountContent(state: MuseumState, onSubmit: (String, String, String, Boolea
                         }
                         Text(if (state.authBusy) "正在连接…" else if (register) "注册并开始旅行" else "登录并开始旅行")
                     }
-                    Text("阅读故事 · 问阿帛 · 留下你的发现", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Text("小朋友请由成人协助注册。无需填写真实姓名、年龄或学校。",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { connectionSettings = !connectionSettings }, enabled = !state.authBusy,
-                modifier = Modifier.semantics { stateDescription = if (connectionSettings) "已展开" else "已收起" }) {
-                Text(if (connectionSettings) "收起连接设置" else "连接设置")
+                modifier = Modifier.align(Alignment.End).heightIn(min = Space.touch)
+                    .semantics { stateDescription = if (connectionSettings) "已展开" else "已收起" }) {
+                Text(if (connectionSettings) "收起连接设置" else "连接设置  ›")
             }
             if (connectionSettings) {
-                MuseumField(endpoint, { endpoint = it }, "服务地址", enabled = !state.authBusy)
-                Text(if (BuildConfig.DEBUG) "模拟器使用 10.0.2.2 访问电脑；真机填写可达的服务地址。HTTP 仅用于可信开发网络。"
-                    else "请使用 HTTPS 服务地址。", style = MaterialTheme.typography.bodySmall)
+                Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                        MuseumField(endpoint, { endpoint = it }, "服务地址", enabled = !state.authBusy)
+                        Text(if (BuildConfig.DEBUG) "模拟器使用 10.0.2.2；真机填写电脑的局域网地址。"
+                            else "请使用 HTTPS 服务地址。", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Text("小朋友请由成人协助注册 · 无需填写真实姓名、年龄或学校",
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun AuthHero(modifier: Modifier = Modifier) {
+    Surface(modifier = modifier.fillMaxWidth().heightIn(min = Space.touch * 3),
+        shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(Modifier.padding(start = Space.large, top = Space.medium, bottom = Space.medium),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                Text("湘遇 · 文物旅行记", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("从一件文物，\n走进一段历史", modifier = Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleLarge)
+                Text("阿帛在这里等你出发", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Image(painterResource(R.drawable.abo), contentDescription = "阿帛挥手邀请你开始文物旅行",
+                modifier = Modifier.width(Space.touch * 2 + Space.medium).height(Space.touch * 3),
+                contentScale = ContentScale.Fit)
+        }
+    }
+}
+
+@Composable
+private fun AuthModeSwitcher(register: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit,
+                             modifier: Modifier = Modifier) {
+    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(Modifier.padding(Space.small / 2), horizontalArrangement = Arrangement.spacedBy(Space.small / 2)) {
+            listOf(false to "登录", true to "注册").forEach { (value, label) ->
+                TextButton(onClick = { onChange(value) }, enabled = enabled,
+                    modifier = Modifier.weight(1f).heightIn(min = Space.touch)
+                        .semantics { selected = register == value },
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = if (register == value) MaterialTheme.colorScheme.surface
+                            else androidx.compose.ui.graphics.Color.Transparent,
+                        contentColor = if (register == value) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant)) {
+                    Text(label)
+                }
             }
         }
     }

@@ -26,13 +26,14 @@ fun MuseumButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Bo
                  content: @Composable RowScope.() -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val sheet = ImageBitmap.imageResource(R.drawable.button_sprites)
+    val sheet = ImageBitmap.imageResource(R.drawable.button_sprites_v2)
     val row = if (!enabled) 2 else if (pressed) 1 else 0
+    val sourceTop = intArrayOf(110, 402, 697)[row]
     val painter = remember(sheet, row) {
-        BitmapPainter(sheet, srcOffset = IntOffset(24, row * (sheet.height / 3)),
-            srcSize = IntSize(sheet.width - 48, sheet.height / 3))
+        BitmapPainter(sheet, srcOffset = IntOffset(48, sourceTop),
+            srcSize = IntSize(sheet.width - 96, 245))
     }
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Box(modifier.fillMaxWidth().heightIn(min = Space.touch), contentAlignment = Alignment.Center) {
         Image(painter, contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
         Button(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch), enabled = enabled,
             interactionSource = interaction,
