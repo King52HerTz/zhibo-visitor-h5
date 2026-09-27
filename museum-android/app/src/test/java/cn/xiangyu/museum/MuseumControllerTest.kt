@@ -47,6 +47,31 @@ class FakeMuseumApi : MuseumApi {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MuseumControllerTest {
+    @Test fun logoutFinishesCredentialRemovalBeforeAllowingNextLogin() = runTest {
+        val cleared = CompletableDeferred<Unit>()
+        val vault = object : TokenVault {
+            var saved: LoginSession? = LoginSession("a", "TEST_ONLY_TOKEN", "https://example.invalid")
+            override suspend fun load() = saved
+            override suspend fun save(session: LoginSession) { saved = session }
+            override suspend fun clear() { cleared.await(); saved = null }
+        }
+        val controller = MuseumController(FakeMuseumApi(), vault, backgroundScope, false)
+        runCurrent()
+        controller.logout()
+        runCurrent()
+        assertTrue(controller.state.value.authBusy)
+        controller.authenticate("https://example.invalid", "b", "TEST_ONLY_PASSWORD", false)
+        runCurrent()
+        assertNull(controller.state.value.username)
+        cleared.complete(Unit)
+        runCurrent()
+        assertNull(vault.load())
+        assertFalse(controller.state.value.authBusy)
+        controller.authenticate("https://example.invalid", "b", "TEST_ONLY_PASSWORD", false)
+        runCurrent()
+        assertEquals("b", controller.state.value.username)
+    }
+
     @Test fun endpointOnlyAllowsSafeConfiguredTransport() {
         assertEquals("https://example.invalid", serviceEndpoint("https://example.invalid/", false))
         assertEquals("http://10.0.2.2:8000", serviceEndpoint("http://10.0.2.2:8000", true))

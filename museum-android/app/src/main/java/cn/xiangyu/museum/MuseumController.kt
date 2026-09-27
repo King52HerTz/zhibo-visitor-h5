@@ -92,8 +92,11 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
     fun logout() {
         login = null
         val endpoint = state.value.endpoint
-        mutable.value = MuseumState(restoring = false, endpoint = endpoint)
-        replace { vault.clear() }
+        mutable.value = MuseumState(restoring = false, endpoint = endpoint, authBusy = true)
+        replace { ticket ->
+            vault.clear()
+            if (ticket == generation) mutable.update { it.copy(authBusy = false) }
+        }
     }
 
     fun chooseMode() {

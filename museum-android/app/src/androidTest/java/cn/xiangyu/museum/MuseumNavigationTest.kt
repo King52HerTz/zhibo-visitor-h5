@@ -17,7 +17,10 @@ class MuseumNavigationTest {
         compose.runOnUiThread {
             ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout()
         }
-        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.restoring }
+        compose.waitUntil(5000) {
+            val state = ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value
+            !state.restoring && !state.authBusy
+        }
         compose.runOnUiThread {
             ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.authenticate(
                 server.endpoint, "TEST_ONLY_USER", "TEST_ONLY_PASSWORD", false)
@@ -27,7 +30,7 @@ class MuseumNavigationTest {
 
     @After fun logoutAndCloseFixture() {
         compose.runOnUiThread { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout() }
-        kotlinx.coroutines.runBlocking { SecureTokenStore(compose.activity).clear() }
+        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.authBusy }
         server.close()
     }
 
@@ -64,6 +67,7 @@ class MuseumNavigationTest {
 
     @Test fun loginFormGatesModeSelectionAndUsesExistingTheme() {
         compose.runOnUiThread { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout() }
+        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.authBusy }
         compose.onNodeWithText("儿童模式").assertDoesNotExist()
         compose.onNode(hasSetTextAction() and hasText("账号")).performScrollTo().performTextInput("TEST_UI_USER")
         compose.onNode(hasSetTextAction() and hasText("密码")).performScrollTo().performTextInput("TEST_ONLY_PASSWORD")
@@ -75,6 +79,7 @@ class MuseumNavigationTest {
 
     @Test fun registrationTabsClearPasswordAndConnectionSettingsExpand() {
         compose.runOnUiThread { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout() }
+        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.authBusy }
         compose.onNodeWithText("登录并开始旅行").assertIsNotEnabled()
         compose.onNode(hasSetTextAction() and hasText("服务地址")).assertDoesNotExist()
         compose.onNode(hasSetTextAction() and hasText("密码")).performScrollTo().performTextInput("TEST_ONLY_PASSWORD")
@@ -82,7 +87,7 @@ class MuseumNavigationTest {
         compose.onNodeWithText("隐藏").assertExists()
         compose.onNodeWithText("注册", substring = false).performScrollTo().performClick().assertIsSelected()
         compose.onNodeWithText("注册并开始旅行").assertIsNotEnabled()
-        compose.onNodeWithText("连接设置").performScrollTo().performClick()
+        compose.onNodeWithText("连接设置", substring = true).performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("服务地址")).assertExists()
         compose.onNodeWithText("收起连接设置").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("服务地址")).assertDoesNotExist()
