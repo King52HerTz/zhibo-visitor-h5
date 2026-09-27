@@ -21,7 +21,8 @@ data class MuseumState(
 )
 
 class MuseumController(private val api: MuseumApi, private val vault: TokenVault,
-                       private val scope: CoroutineScope, private val debug: Boolean) {
+                       private val scope: CoroutineScope, private val debug: Boolean,
+                       private val progress: ProgressController? = null) {
     private val mutable = MutableStateFlow(MuseumState(endpoint = if (debug) "http://10.0.2.2:8000" else ""))
     val state = mutable.asStateFlow()
     private var login: LoginSession? = null
@@ -38,6 +39,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
                 }
                 if (ticket == generation) {
                     login = saved
+                    progress?.bind(saved, null)
                     mutable.update { it.copy(restoring = false, username = saved?.username,
                         endpoint = saved?.endpoint ?: it.endpoint) }
                 }
@@ -63,6 +65,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
                 if (ticket == generation) {
                     if (error is ApiFailure && error.status == 401 && login != null) {
                         login = null
+                        progress?.bind(null, null)
                         mutable.value = MuseumState(restoring = false, endpoint = state.value.endpoint,
                             error = "登录已失效，请重新登录")
                         vault.clear()
@@ -84,6 +87,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
             vault.save(authenticated)
             if (ticket == generation) {
                 login = authenticated
+                progress?.bind(authenticated, null)
                 mutable.value = MuseumState(restoring = false, username = authenticated.username, endpoint = address)
             }
         }
@@ -91,6 +95,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
 
     fun logout() {
         login = null
+        progress?.bind(null, null)
         val endpoint = state.value.endpoint
         mutable.value = MuseumState(restoring = false, endpoint = endpoint, authBusy = true)
         replace { ticket ->
@@ -100,12 +105,14 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
     }
 
     fun chooseMode() {
+        progress?.bind(null, null)
         mutable.update { it.copy(audience = null, session = null, sessions = emptyList(),
             messages = emptyList(), draft = "", chatBusy = false, error = null, needsRefresh = false) }
         replace { }
     }
 
     fun selectAudience(audience: Audience) {
+        progress?.bind(login, audience)
         mutable.update { it.copy(audience = audience, exhibitId = null, session = null,
             sessions = emptyList(), messages = emptyList(), draft = "", error = null, needsRefresh = false, chatBusy = false) }
         loadConversation()
@@ -184,6 +191,19 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
 
 class MuseumViewModel(application: Application) : AndroidViewModel(application) {
     private val api = HttpMuseumApi()
-    val controller = MuseumController(api, SecureTokenStore(application), viewModelScope, BuildConfig.DEBUG)
-    override fun onCleared() { api.close() }
+    private val progressStore = SqliteProgressStore(application)
+    val progress = ProgressController(api, progressStore, viewModelScope)
+    val controller = MuseumController(api, SecureTokenStore(application), viewModelScope, BuildConfig.DEBUG, progress)
+    private val connectivity = application.getSystemService(android.net.ConnectivityManager::class.java)
+    private val networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) {
+            viewModelScope.launch { progress.sync() }
+        }
+    }
+    init { connectivity.registerDefaultNetworkCallback(networkCallback) }
+    override fun onCleared() {
+        connectivity.unregisterNetworkCallback(networkCallback)
+        api.close()
+        progressStore.close()
+    }
 }

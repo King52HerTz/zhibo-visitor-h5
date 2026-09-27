@@ -12,6 +12,8 @@ class TestMuseumServer : AutoCloseable {
     val requests = CopyOnWriteArrayList<Pair<String, JSONObject>>()
     @Volatile var streamError = false
     @Volatile var unauthorized = false
+    @Volatile var progressOffline = false
+    private val progress = mutableMapOf<String, Set<String>>()
     private val worker = thread(isDaemon = true) {
         while (!server.isClosed) {
             try {
@@ -50,6 +52,13 @@ class TestMuseumServer : AutoCloseable {
                         unauthorized -> "{}"
                         path == "/auth/login" || path == "/mobile/auth/register" ->
                             JSONObject().put("username", body.getString("username")).put("access_token", "TEST_ONLY_TOKEN").toString()
+                        path == "/mobile/progress/sync" -> {
+                            val audience = body.getString("audience")
+                            val completed = body.getJSONArray("completed_tasks")
+                            val tasks = progress[audience].orEmpty() + (0 until completed.length()).map { completed.getString(it) }
+                            if (!progressOffline) progress[audience] = tasks
+                            JSONObject().put("completed_tasks", org.json.JSONArray(tasks.sorted())).toString()
+                        }
                         request[0] == "POST" && path == "/mobile/sessions" -> "{\"session_id\":\"test-session\",\"title\":\"测试会话\",\"exhibit_id\":null}"
                         path.startsWith("/mobile/sessions?") -> "{\"sessions\":[]}"
                         path.startsWith("/mobile/sessions/") -> "{\"messages\":[]}"
@@ -61,7 +70,8 @@ class TestMuseumServer : AutoCloseable {
                         else -> "{}"
                     }
                     val bytes = response.toByteArray(Charsets.UTF_8)
-                    val status = if (unauthorized) "401 Unauthorized" else "200 OK"
+                    val status = if (unauthorized) "401 Unauthorized" else if (path == "/mobile/progress/sync" && progressOffline)
+                        "503 Service Unavailable" else "200 OK"
                     val type = if (stream) "text/event-stream" else "application/json"
                     val output = socket.getOutputStream()
                     output.write("HTTP/1.1 $status\r\nContent-Type: $type; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())

@@ -3,8 +3,19 @@ package cn.xiangyu.museum
 enum class Audience(val label: String) { CHILD("儿童模式"), ADULT("成人模式") }
 
 data class Relic(val id: String, val title: String, val childText: String, val adultText: String)
+data class ObservationTask(val id: String, val relicId: String, val title: String,
+                           val childPrompt: String, val adultPrompt: String, val options: List<String>, val answer: Int)
 
 object FirstChapter {
+    val tasks = listOf(
+        ObservationTask("clothes-light-v1", "silk-plain-straight", "发现轻与薄",
+            "读完这件衣服的故事，它的衣料给你什么感觉？", "从材料特点看，素纱单衣给我们提供了怎样的工艺线索？",
+            listOf("轻薄的丝纱", "厚重的金属"), 0),
+        ObservationTask("clothes-pattern-v1", "silk-painted-robe", "寻找花叶线索",
+            "看看故事里的纹样介绍，它让你想到什么？", "印花与绘彩把哪一种自然形态带到了衣服上？",
+            listOf("植物的枝叶和花", "现代的交通标志"), 0)
+    )
+    const val rewardId = "clothes-journal-v1"
     val relics = listOf(
         Relic("silk-plain-straight", "直裾素纱单衣",
             "这是一件西汉时期的素纱单衣，出土于长沙马王堆一号墓。它用丝纱制成。仔细看，衣料轻薄，让我们认识古人的织造本领。",

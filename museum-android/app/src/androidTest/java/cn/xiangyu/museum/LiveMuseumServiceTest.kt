@@ -9,6 +9,46 @@ import java.util.UUID
 
 // Opt-in: creates temporary ordinary users and calls the configured real model.
 class LiveMuseumServiceTest {
+    @Test fun realProgressSynchronizesAndRestoresWithoutCallingModel() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        val endpoint = args.getString("liveEndpoint")
+        val prefix = args.getString("liveUserPrefix")
+        assumeTrue("live service arguments required", !endpoint.isNullOrBlank() && !prefix.isNullOrBlank())
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = "live-progress-${UUID.randomUUID()}.db"
+        val api = HttpMuseumApi()
+        try {
+            val password = UUID.randomUUID().toString()
+            val address = serviceEndpoint(endpoint!!, true)
+            val a = api.authenticate(address, prefix + "a", password, true)
+            val b = api.authenticate(address, prefix + "b", password, true)
+            val key = ProgressKey(address, a.username, Audience.CHILD)
+            SqliteProgressStore(context, database).use { store ->
+                store.complete(key, "clothes-light-v1")
+                store.complete(key, "clothes-pattern-v1")
+            }
+            SqliteProgressStore(context, database).use { store ->
+                val local = store.load(key)
+                assertEquals(2, local.pending.size)
+                val responses = coroutineScope {
+                    List(4) { async { api.syncProgress(a, Audience.CHILD, local.completed) } }.awaitAll()
+                }
+                responses.forEach { assertEquals(local.completed, it) }
+                assertTrue(store.merge(key, responses.first()).pending.isEmpty())
+                assertEquals(local.completed, api.syncProgress(a, Audience.CHILD, emptySet()))
+                assertTrue(api.syncProgress(a, Audience.ADULT, emptySet()).isEmpty())
+                assertTrue(api.syncProgress(b, Audience.CHILD, emptySet()).isEmpty())
+            }
+            SqliteProgressStore(context, database).use { store ->
+                assertEquals(2, store.load(key).completed.size)
+                assertTrue(store.load(key).pending.isEmpty())
+            }
+        } finally {
+            api.close()
+            context.deleteDatabase(database)
+        }
+    }
+
     @Test fun realServiceRestoresHistoryAndSeparatesAccountsAndModes() = runBlocking {
         val args = InstrumentationRegistry.getArguments()
         val endpoint = args.getString("liveEndpoint")

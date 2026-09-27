@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class HttpMuseumApi : MuseumApi, AutoCloseable {
+class HttpMuseumApi : MuseumApi, MuseumProgressApi, AutoCloseable {
     private val workers = Executors.newCachedThreadPool { runnable ->
         Thread(runnable, "museum-network").apply { isDaemon = true }
     }
@@ -81,6 +81,10 @@ class HttpMuseumApi : MuseumApi, AutoCloseable {
     override suspend fun createSession(login: LoginSession, audience: Audience, exhibitId: String?): ChatSessionInfo =
         sessionInfo(json(login, "/mobile/sessions", JSONObject().put("audience", audience.apiValue)
             .put("exhibit_id", exhibitId ?: JSONObject.NULL)))
+
+    override suspend fun syncProgress(login: LoginSession, audience: Audience, completed: Set<String>): Set<String> =
+        json(login, "/mobile/progress/sync", JSONObject().put("audience", audience.apiValue)
+            .put("completed_tasks", JSONArray(completed.sorted()))).getJSONArray("completed_tasks").strings().toSet()
 
     override suspend fun messages(login: LoginSession, audience: Audience, session: ChatSessionInfo): List<ChatLine> =
         json(login, "/mobile/sessions/${session.id}?audience=${audience.apiValue}").getJSONArray("messages")
