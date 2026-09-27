@@ -33,7 +33,9 @@ class WorkshopIntegrationTest {
             try {
                 compose.runOnUiThread { model().controller.authenticate(server.endpoint, username, "TEST_ONLY_PASSWORD", false) }
                 compose.waitUntil(5000) { model().controller.state.value.username != null }
+                compose.waitUntil(5000) { compose.onAllNodesWithText("儿童模式").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+                compose.onNodeWithText("跳过引入").performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading }
                 compose.onNodeWithText("开始探索").performScrollTo().performClick()
                 compose.onNodeWithText("阿帛的汉代衣坊").performScrollTo().assertIsDisplayed()

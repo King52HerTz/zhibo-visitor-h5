@@ -46,14 +46,17 @@ class MainActivity : ComponentActivity() {
 fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progressController: ProgressController? = null) {
     val state by controller.state.collectAsStateWithLifecycle()
     val progress = progressController?.state?.collectAsStateWithLifecycle()?.value ?: ProgressState()
-    key(state.username) { MuseumPages(state, controller, modifier, progress, progressController) }
+    var splash by rememberSaveable { mutableStateOf(true) }
+    if (splash) BrandSplash { splash = false }
+    else key(state.endpoint, state.username) { MuseumPages(state, controller, modifier, progress, progressController) }
 }
 
 @Composable
 private fun MuseumPages(state: MuseumState, controller: MuseumController?, modifier: Modifier = Modifier,
                         progress: ProgressState = ProgressState(), progressController: ProgressController? = null) {
     val mode = state.audience?.name.orEmpty()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable(mode) { mutableIntStateOf(0) }
+    var introDone by rememberSaveable(mode) { mutableStateOf(false) }
     var chapter by rememberSaveable { mutableStateOf(false) }
     var sources by rememberSaveable { mutableStateOf(false) }
     var taskId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
@@ -69,14 +72,24 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         }
     }
     val audience = state.audience
+    val chatTab = if (audience == Audience.ADULT) 2 else 1
+    if (audience == Audience.CHILD && !introDone) {
+        BackHandler { controller?.chooseMode() }
+        StoryInvitation { introDone = true }
+        return
+    }
     Scaffold(modifier = modifier.imePadding(), bottomBar = {
         if (audience != null) Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp
         ) { NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            val sheet = ImageBitmap.imageResource(R.drawable.navigation_sprites)
-            val cell = IntSize(sheet.width / 3, sheet.height / 2)
-            listOf("探索", "问阿帛", "我的手帐").forEachIndexed { index, label ->
+            val sheet = ImageBitmap.imageResource(if (audience == Audience.ADULT)
+                R.drawable.adult_navigation_sprites else R.drawable.navigation_sprites)
+            val columns = if (audience == Audience.ADULT) 4 else 3
+            val cell = IntSize(sheet.width / columns, sheet.height / 2)
+            val labels = if (audience == Audience.ADULT) listOf("故事", "文物", "讲解", "我的")
+                else listOf("探索", "问阿帛", "我的手帐")
+            labels.forEachIndexed { index, label ->
                 val selected = tab == index
                 val painter = remember(sheet, index, selected) {
                     // Trim cell padding so neighboring sticker shadows cannot bleed into the icon.
@@ -85,9 +98,12 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         srcSize = IntSize(cell.width - 40, cell.height - 40))
                 }
                 NavigationBarItem(selected = tab == index, onClick = {
-                    if (tab == 1 && index != 1) controller?.stop()
+                    if (tab == chatTab && index != chatTab) controller?.stop()
                     tab = index; chapter = false; sources = false; taskId = null
-                }, icon = { Image(painter, contentDescription = null, modifier = Modifier.size(48.dp)) },
+                }, icon = {
+                    Image(painter, contentDescription = null,
+                        modifier = Modifier.size(if (audience == Audience.CHILD) 48.dp else 36.dp))
+                },
                     label = { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
                     colors = NavigationBarItemDefaults.colors(
                         indicatorColor = Color.Transparent,
@@ -100,28 +116,37 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         Column(modifier = Modifier.padding(padding).fillMaxSize()
             .verticalScroll(pageScroll).padding(Space.large),
             verticalArrangement = Arrangement.spacedBy(Space.medium)) {
-            if (state.username != null) Text("湘遇 · 文物旅行记", style = MaterialTheme.typography.titleLarge)
+            if (state.username != null) Text("湘遇", style = MaterialTheme.typography.titleLarge)
             if (state.username == null) {
                 AccountContent(state, { endpoint, username, password, register ->
                     controller?.authenticate(endpoint, username, password, register)
                 })
             } else if (audience == null) {
                 Text("已登录 · ${state.username}", style = MaterialTheme.typography.bodySmall)
-                Abo()
-                Text("你想怎样开始这段旅行？", style = MaterialTheme.typography.headlineLarge)
-                Text("同一段文化，两种发现方式。", style = MaterialTheme.typography.bodyLarge)
-                Audience.entries.forEach { option ->
-                    Action(onClick = { controller?.selectAudience(option) }) { Text(option.label) }
-                    Text(if (option == Audience.CHILD) "6～9 岁 · 和阿帛一起观察与探索" else "跟随文物，读懂汉代生活", style = MaterialTheme.typography.bodyMedium)
+                Abo(Modifier.height(120.dp))
+                Text("今天，怎样出发？", style = MaterialTheme.typography.headlineMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Audience.entries.forEach { option ->
+                        OutlinedButton(onClick = { controller?.selectAudience(option) }) { Text(option.label) }
+                    }
                 }
-                TextButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
             } else {
                 Text("已登录 · ${state.username}", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { controller?.chooseMode(); chapter = false; sources = false; tab = 0 }) {
                     Text("${audience.label} · 切换模式")
                 }
-                when (tab) {
-                    0 -> if (taskId != null) {
+                when {
+                    audience == Audience.ADULT && tab == 1 -> AdultRelics { relic ->
+                        controller?.selectExhibit(relic.id); tab = chatTab
+                    }
+                    audience == Audience.ADULT && tab == 3 -> {
+                        Text("我的旅程", style = MaterialTheme.typography.headlineLarge)
+                        Text(state.username, style = MaterialTheme.typography.titleMedium)
+                        OutlinedButton(onClick = { controller?.loadConversation(); tab = chatTab }) { Text("我的讲解记录") }
+                        OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                    }
+                    tab == 0 -> if (taskId != null) {
                         OutlinedButton(onClick = { taskId = null }) { Text("返回故事") }
                         FirstChapter.tasks.firstOrNull { it.id == taskId }?.let { task ->
                             if (audience == Audience.CHILD) WorkshopTaskContent(task, progress, { progressController?.complete(it) })
@@ -130,27 +155,30 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                     } else if (chapter) {
                         OutlinedButton(onClick = { chapter = false; sources = false }) { Text("返回探索") }
                         if (audience == Audience.CHILD) WorkshopContent(progress.progress, onTask = { taskId = it.id })
-                        else ChapterProgress(progress.progress)
-                        ChapterContent(audience, onTask = { taskId = it.id }, onAsk = { relic ->
-                            controller?.selectExhibit(relic.id); tab = 1; chapter = false
-                        })
-                        Action(onClick = { sources = !sources }) { Text(if (sources) "收起来源" else "查看来源") }
+                        OutlinedButton(onClick = { sources = !sources }) { Text(if (sources) "收起档案" else "文物与来源") }
+                        if (audience == Audience.ADULT || sources) ChapterContent(audience,
+                            onTask = { taskId = it.id }, onAsk = { relic ->
+                                controller?.selectExhibit(relic.id); tab = chatTab; chapter = false
+                            })
                         if (sources) SourceContent()
-                        Action(onClick = { controller?.selectExhibit(null); tab = 1; chapter = false }) { Text("问阿帛 · 本章") }
+                        OutlinedButton(onClick = { controller?.selectExhibit(null); tab = chatTab; chapter = false }) {
+                            Text(if (audience == Audience.CHILD) "问阿帛 · 本章" else "本章讲解")
+                        }
                     } else {
                         HomeContent(audience, onOpen = { chapter = true })
-                        ChapterProgress(progress.progress)
+                        if (audience == Audience.CHILD) ChapterProgress(progress.progress)
+                        if (audience == Audience.CHILD) TextButton(onClick = { introDone = false }) { Text("重看故事引入") }
                     }
-                    1 -> {
+                    tab == chatTab -> {
                         ChatContent(state, { controller?.draft(it) }, { controller?.send(it) },
                             { controller?.stop() }, { controller?.loadConversation() },
                             { controller?.loadConversation(new = true) }, { controller?.loadConversation(it) },
                             { controller?.selectExhibit(it) })
                     }
-                    2 -> {
+                    tab == 2 -> {
                         JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },
                             onSync = { progressController?.sync() })
-                        TextButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                        OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
                     }
                 }
             }
@@ -188,7 +216,7 @@ private fun ChapterContent(audience: Audience, onTask: (ObservationTask) -> Unit
     FirstChapter.relics.forEach { relic ->
         Text(relic.title, style = MaterialTheme.typography.titleLarge)
         Text(FirstChapter.text(relic, audience), style = MaterialTheme.typography.bodyLarge)
-        FirstChapter.tasks.first { it.relicId == relic.id }.let { task ->
+        if (audience == Audience.CHILD) FirstChapter.tasks.first { it.relicId == relic.id }.let { task ->
             Action(onClick = { onTask(task) }) { Text("观察任务 · ${task.title}") }
         }
         OutlinedButton(onClick = { onAsk(relic) }) { Text("关于${relic.title}，问阿帛") }
@@ -210,7 +238,7 @@ private fun SourceContent() {
 @Composable
 private fun Abo(modifier: Modifier = Modifier) {
     Image(painterResource(R.drawable.abo), contentDescription = "阿帛，带着青蓝飘带和橙色邮包的纸页精灵",
-        modifier = modifier.fillMaxWidth().height(Space.touch * 4))
+        modifier = modifier.fillMaxWidth().heightIn(max = Space.touch * 4))
 }
 
 @Composable

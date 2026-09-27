@@ -138,9 +138,8 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                 modifier: Modifier = Modifier) {
     var showSessions by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Space.medium)) {
-        Text("问阿帛", style = MaterialTheme.typography.headlineLarge)
-        Text("${state.audience?.label} · 独立会话", style = MaterialTheme.typography.titleMedium)
-        Text("AI 需要联网核验资料；阅读首章不需要联网。", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.audience == Audience.ADULT) "文物讲解" else "问阿帛",
+            style = MaterialTheme.typography.headlineLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
             TextButton(onClick = { showSessions = !showSessions }, enabled = !state.chatBusy) { Text("历史会话") }
             TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
@@ -164,7 +163,12 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                         modifier = Modifier.weight(1f)) { Text(relic.title) }
                 }
             }
-            MuseumNotice("你可以问用途、比较或故事。资料不足时，阿帛会说明缺口。")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(painterResource(R.drawable.abo), null, Modifier.size(Space.touch * 2))
+                Text(if (state.audience == Audience.CHILD) "想知道哪件文物的秘密？" else "从材料、工艺或历史开始。",
+                    style = MaterialTheme.typography.titleMedium)
+            }
+            OutlinedButton(onClick = { onDraft("这两件衣服的材料和工艺有什么不同？") }) { Text("比较两件衣服") }
         }
         state.messages.forEachIndexed { index, line -> ChatBubble(line, { onSend(it) },
             enabled = index == state.messages.lastIndex && !state.chatBusy && !state.needsRefresh) }

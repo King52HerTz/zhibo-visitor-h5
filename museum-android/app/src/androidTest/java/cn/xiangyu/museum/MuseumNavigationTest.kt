@@ -1,5 +1,8 @@
 package cn.xiangyu.museum
 
+import android.graphics.Bitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -26,6 +29,7 @@ class MuseumNavigationTest {
                 server.endpoint, "TEST_ONLY_USER", "TEST_ONLY_PASSWORD", false)
         }
         compose.waitUntil(5000) { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.username != null }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("儿童模式").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @After fun logoutAndCloseFixture() {
@@ -36,9 +40,10 @@ class MuseumNavigationTest {
 
     @Test fun stickerNavigationSwitchesTabsAndRestoresSelection() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performClick()
         compose.onNode(hasText("探索") and hasClickAction()).assertIsSelected()
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick().assertIsSelected()
-        compose.onNodeWithText("AI 需要联网核验资料；阅读首章不需要联网。").assertExists()
+        compose.onNodeWithText("比较两件衣服").assertExists()
         compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
         compose.activityRule.scenario.recreate()
         compose.onNode(hasText("我的手帐") and hasClickAction()).assertIsSelected()
@@ -49,20 +54,33 @@ class MuseumNavigationTest {
 
     @Test fun childCanReadOfflineChapterAndSeeHonestAiState() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performClick()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("今天，寄一封信给汉代").assertExists()
         compose.onNodeWithText("开始探索").performScrollTo().performClick()
+        compose.onNodeWithText("文物与来源").performScrollTo().performClick()
         compose.onNodeWithText("直裾素纱单衣").assertExists()
         compose.onNodeWithText("问阿帛 · 本章").performScrollTo().performClick()
-        compose.onNodeWithText("AI 需要联网核验资料；阅读首章不需要联网。").assertExists()
+        compose.onNodeWithText("比较两件衣服").assertExists()
     }
 
     @Test fun adultModeUsesDifferentStoryAndCanSwitch() {
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
         compose.onNodeWithText("从一件衣服，走进汉代生活").assertExists()
+        compose.onNode(hasText("文物") and hasClickAction()).performClick()
+        compose.onNodeWithText("文物档案").assertIsDisplayed()
+        compose.onNodeWithText("我的手帐").assertDoesNotExist()
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        File(instrumentation.targetContext.getExternalFilesDir(null), "experience-adult-relics.png").outputStream().use {
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+        }
+        compose.onNode(hasText("故事") and hasClickAction()).performClick()
         compose.onNodeWithText("开始阅读").performScrollTo().performClick()
         compose.onNodeWithText("成人模式 · 切换模式").performScrollTo().performClick()
-        compose.onNodeWithText("你想怎样开始这段旅行？").assertExists()
+        compose.onNodeWithText("今天，怎样出发？").assertExists()
     }
 
     @Test fun loginFormGatesModeSelectionAndUsesExistingTheme() {
@@ -97,6 +115,7 @@ class MuseumNavigationTest {
 
     @Test fun chatShowsStreamReferencesAndClarificationWithoutResendingOnRecreate() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performClick()
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
         compose.onNode(hasSetTextAction() and hasText("想问阿帛什么？")).performScrollTo().performTextInput("介绍这件衣服")

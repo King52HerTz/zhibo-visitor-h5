@@ -58,21 +58,22 @@ class ProgressJourneyTest {
             try {
                 compose.runOnUiThread { model().controller.authenticate(server.endpoint, username, "TEST_ONLY_PASSWORD", false) }
                 compose.waitUntil(5000) { model().controller.state.value.username != null }
-                compose.onNodeWithText("成人模式").performScrollTo().performClick()
+                compose.waitUntil(5000) { compose.onAllNodesWithText("儿童模式").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+                compose.onNodeWithText("跳过引入").performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading && !model().progress.state.value.syncing }
                 compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
                 shot("p3-journal-locked.png")
                 compose.onNodeWithText("继续探索衣服里的秘密").performScrollTo().performClick()
-                compose.onNodeWithText("观察任务 · 发现轻与薄").performScrollTo().performClick()
+                compose.onNodeWithText("衣服", substring = false).performScrollTo().performClick()
                 shot("p3-observation.png")
-                compose.onNodeWithText("厚重的金属").performScrollTo().performClick()
-                compose.onNodeWithText("再看看上面的故事，线索就在衣料和纹样里。可以重新选择。").assertExists()
-                compose.onNodeWithText("轻薄的丝纱").performScrollTo().performClick()
+                compose.onNodeWithText("把发现收进手帐").assertIsNotEnabled()
+                compose.onNodeWithText("掀开衣料").performScrollTo().performClick()
                 compose.onNodeWithText("把发现收进手帐").performScrollTo().performClick()
                 compose.waitUntil(5000) { model().progress.state.value.progress.completed.size == 1 }
                 compose.onNodeWithText("返回故事").performScrollTo().performClick()
-                compose.onNodeWithText("观察任务 · 寻找花叶线索").performScrollTo().performClick()
-                compose.onNodeWithText("植物的枝叶和花").performScrollTo().performClick()
+                compose.onNodeWithText("花叶", substring = false).performScrollTo().performClick()
+                compose.onNodeWithText("点一下放入花叶").performScrollTo().performClick()
                 compose.onNodeWithText("把发现收进手帐").performScrollTo().performClick()
                 compose.waitUntil(5000) { model().progress.state.value.progress.completed.size == 2 }
                 compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
@@ -84,7 +85,7 @@ class ProgressJourneyTest {
                 server.progressOffline = false
                 compose.runOnUiThread { model().progress.sync() }
                 compose.waitUntil(5000) { model().progress.state.value.progress.pending.isEmpty() && !model().progress.state.value.syncing }
-                compose.runOnUiThread { model().controller.selectAudience(Audience.CHILD) }
+                compose.runOnUiThread { model().controller.selectAudience(Audience.ADULT) }
                 compose.waitUntil(5000) { !model().progress.state.value.loading && !model().progress.state.value.syncing }
                 assertTrue(model().progress.state.value.progress.completed.isEmpty())
                 shot("p3-journal-adult.png")
