@@ -8,3 +8,6 @@ dist/
 !.env.example
 __pycache__/
 *.py[cod]
+
+# User-generated story videos are local-only.
+museum-android/app/src/main/res/raw/story_*.mp4

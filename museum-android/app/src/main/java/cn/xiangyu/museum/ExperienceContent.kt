@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
@@ -29,7 +30,15 @@ internal fun BrandSplash(onFinished: () -> Unit) {
 }
 
 @Composable
-internal fun StoryInvitation(onReady: () -> Unit) {
+internal fun StoryInvitation(previewOnly: Boolean = false, onReady: () -> Unit) {
+    val context = LocalContext.current
+    val videos = remember(context) { storyVideoResources(context) }
+    if (!previewOnly && videos.all { it != 0 }) StoryVideoInvitation(videos, onReady)
+    else StoryboardInvitation(onReady)
+}
+
+@Composable
+private fun StoryboardInvitation(onReady: () -> Unit) {
     var frame by rememberSaveable { mutableIntStateOf(0) }
     val images = listOf(R.drawable.story_invitation, R.drawable.workshop_scene, R.drawable.chapter_journal)
     val lines = listOf("阿帛收到了一本少了一页的旅行手帐。", "一根丝线，会变成怎样的衣服？一起去找找。", "发现轻薄的衣料，再找一片花叶，补上这页故事。")

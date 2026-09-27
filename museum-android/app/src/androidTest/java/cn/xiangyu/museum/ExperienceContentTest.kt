@@ -14,7 +14,7 @@ class ExperienceContentTest {
 
     @Test fun introductionRequiresThreeFramesOrExplicitSkip() {
         var ready = 0
-        compose.setContent { MuseumTheme { StoryInvitation { ready++ } } }
+        compose.setContent { MuseumTheme { StoryInvitation(previewOnly = true) { ready++ } } }
         compose.onNodeWithText("开始旅程").assertDoesNotExist()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         compose.waitForIdle()
@@ -31,7 +31,7 @@ class ExperienceContentTest {
 
     @Test fun introductionCanBeSkippedWithoutCompletingTasks() {
         var ready = 0
-        compose.setContent { MuseumTheme { StoryInvitation { ready++ } } }
+        compose.setContent { MuseumTheme { StoryInvitation(previewOnly = true) { ready++ } } }
         compose.onNodeWithText("跳过引入").performClick()
         assertEquals(1, ready)
     }
