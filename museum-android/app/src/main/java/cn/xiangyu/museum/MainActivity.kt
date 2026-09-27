@@ -124,11 +124,13 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                     0 -> if (taskId != null) {
                         OutlinedButton(onClick = { taskId = null }) { Text("返回故事") }
                         FirstChapter.tasks.firstOrNull { it.id == taskId }?.let { task ->
-                            ObservationContent(task, audience, progress, { progressController?.complete(it) })
+                            if (audience == Audience.CHILD) WorkshopTaskContent(task, progress, { progressController?.complete(it) })
+                            else ObservationContent(task, audience, progress, { progressController?.complete(it) })
                         }
                     } else if (chapter) {
                         OutlinedButton(onClick = { chapter = false; sources = false }) { Text("返回探索") }
-                        ChapterProgress(progress.progress)
+                        if (audience == Audience.CHILD) WorkshopContent(progress.progress, onTask = { taskId = it.id })
+                        else ChapterProgress(progress.progress)
                         ChapterContent(audience, onTask = { taskId = it.id }, onAsk = { relic ->
                             controller?.selectExhibit(relic.id); tab = 1; chapter = false
                         })

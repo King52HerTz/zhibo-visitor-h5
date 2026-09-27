@@ -58,7 +58,7 @@ class ProgressJourneyTest {
             try {
                 compose.runOnUiThread { model().controller.authenticate(server.endpoint, username, "TEST_ONLY_PASSWORD", false) }
                 compose.waitUntil(5000) { model().controller.state.value.username != null }
-                compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+                compose.onNodeWithText("成人模式").performScrollTo().performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading && !model().progress.state.value.syncing }
                 compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
                 shot("p3-journal-locked.png")
@@ -84,7 +84,7 @@ class ProgressJourneyTest {
                 server.progressOffline = false
                 compose.runOnUiThread { model().progress.sync() }
                 compose.waitUntil(5000) { model().progress.state.value.progress.pending.isEmpty() && !model().progress.state.value.syncing }
-                compose.runOnUiThread { model().controller.selectAudience(Audience.ADULT) }
+                compose.runOnUiThread { model().controller.selectAudience(Audience.CHILD) }
                 compose.waitUntil(5000) { !model().progress.state.value.loading && !model().progress.state.value.syncing }
                 assertTrue(model().progress.state.value.progress.completed.isEmpty())
                 shot("p3-journal-adult.png")

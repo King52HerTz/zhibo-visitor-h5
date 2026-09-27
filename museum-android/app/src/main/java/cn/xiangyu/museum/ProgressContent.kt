@@ -32,7 +32,7 @@ fun ChapterProgress(progress: TaskProgress, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TaskSticker(index: Int, completed: Boolean, modifier: Modifier = Modifier) {
+internal fun TaskSticker(index: Int, completed: Boolean, modifier: Modifier = Modifier) {
     val sheet = ImageBitmap.imageResource(R.drawable.observation_sprites)
     val width = sheet.width / 2
     val height = sheet.height / 2
