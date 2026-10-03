@@ -136,13 +136,19 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                             state.error?.let { MuseumNotice(it, error = true) }
                             if (state.needsRefresh) {
                                 Text("问题已保留，请先刷新核对记录。", style = MaterialTheme.typography.bodySmall)
-                                FilledTonalButton(onClick = onReload, enabled = !state.chatBusy) { Text("刷新会话") }
+                                FilledTonalButton(onClick = onReload, enabled = !state.chatBusy,
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        contentColor = MaterialTheme.colorScheme.primary)) { Text("刷新会话") }
                             }
                         }
                     }
                 }
                 if (!followLatest && state.messages.isNotEmpty() && list.canScrollForward) {
-                    FilledTonalButton(onClick = { followLatest = true }, modifier = Modifier.align(Alignment.BottomCenter).padding(Space.small)) {
+                    FilledTonalButton(onClick = { followLatest = true }, modifier = Modifier.align(Alignment.BottomCenter).padding(Space.small),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            contentColor = MaterialTheme.colorScheme.primary)) {
                         Text("回到最新回复")
                     }
                 }

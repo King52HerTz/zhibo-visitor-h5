@@ -138,6 +138,7 @@ class MuseumNavigationTest {
         compose.onNodeWithText("请选一个测试方向").assertExists()
         compose.onNodeWithText("展开引用 · 1 条").performScrollTo().performClick()
         compose.onNodeWithText("测试依据").assertExists()
+        screenshot("chat-main-references.png")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("请选一个测试方向").assertExists()
         org.junit.Assert.assertEquals(1, server.requests.count { it.first == "/mobile/chat/stream" })
