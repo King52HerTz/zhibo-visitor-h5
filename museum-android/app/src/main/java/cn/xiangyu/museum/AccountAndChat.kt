@@ -131,56 +131,6 @@ private fun AuthModeSwitcher(register: Boolean, enabled: Boolean, onChange: (Boo
     }
 }
 
-@Composable
-fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?) -> Unit,
-                onStop: () -> Unit, onReload: () -> Unit, onNew: () -> Unit,
-                onSession: (ChatSessionInfo) -> Unit, onExhibit: (String?) -> Unit,
-                modifier: Modifier = Modifier) {
-    var showSessions by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(Space.medium)) {
-        Text(if (state.audience == Audience.ADULT) "文物讲解" else "问阿帛",
-            style = MaterialTheme.typography.headlineLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-            TextButton(onClick = { showSessions = !showSessions }, enabled = !state.chatBusy) { Text("历史会话") }
-            TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
-            TextButton(onClick = onReload, enabled = !state.chatBusy) { Text("刷新会话") }
-        }
-        if (showSessions) {
-            if (state.sessions.isEmpty()) Text("当前模式暂无历史会话")
-            state.sessions.forEach { session ->
-                OutlinedButton(onClick = { onSession(session); showSessions = false }, enabled = !state.chatBusy) {
-                    Text(session.title)
-                }
-            }
-        }
-        Text("当前文物：${FirstChapter.relics.firstOrNull { it.id == state.exhibitId }?.title ?: "博物馆主题"}",
-            style = MaterialTheme.typography.bodyMedium)
-        if (state.messages.isEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                TextButton(onClick = { onExhibit(null) }, enabled = !state.chatBusy) { Text("主题问答") }
-                FirstChapter.relics.forEach { relic ->
-                    TextButton(onClick = { onExhibit(relic.id) }, enabled = !state.chatBusy,
-                        modifier = Modifier.weight(1f)) { Text(relic.title) }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(painterResource(R.drawable.abo), null, Modifier.size(Space.touch * 2))
-                Text(if (state.audience == Audience.CHILD) "想知道哪件文物的秘密？" else "从材料、工艺或历史开始。",
-                    style = MaterialTheme.typography.titleMedium)
-            }
-            OutlinedButton(onClick = { onDraft("这两件衣服的材料和工艺有什么不同？") }) { Text("比较两件衣服") }
-        }
-        state.messages.forEachIndexed { index, line -> ChatBubble(line, { onSend(it) },
-            enabled = index == state.messages.lastIndex && !state.chatBusy && !state.needsRefresh) }
-        if (state.status.isNotBlank()) MuseumNotice(state.status)
-        state.error?.let { MuseumNotice(it, error = true) }
-        MuseumField(state.draft, onDraft, "想问阿帛什么？", enabled = !state.chatBusy, singleLine = false)
-        if (state.chatBusy) MuseumButton(onStop) { Text("停止回复") }
-        else MuseumButton(onClick = { onSend(null) }, enabled = state.draft.isNotBlank() && !state.needsRefresh) { Text("发送问题") }
-        if (state.needsRefresh) Text("问题已保留。请先刷新核对服务器记录，不会自动重复发送。", style = MaterialTheme.typography.bodySmall)
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun AccountPreview() { MuseumTheme { AccountContent(MuseumState(restoring = false), { _, _, _, _ -> }) } }

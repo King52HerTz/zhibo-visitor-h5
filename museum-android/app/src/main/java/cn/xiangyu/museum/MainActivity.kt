@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,13 +90,14 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         }
     }
     val chatTab = if (audience == Audience.ADULT) 2 else 1
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     if (audience == Audience.CHILD && !introDone) {
         BackHandler { controller?.chooseMode() }
         StoryInvitation { introDone = true }
         return
     }
     Scaffold(modifier = modifier.imePadding(), bottomBar = {
-        if (audience != null) Surface(
+        if (audience != null && !(tab == chatTab && keyboardVisible)) Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp
         ) { NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
@@ -129,6 +131,14 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             }
         } }
     }) { padding ->
+        if (state.username != null && audience != null && tab == chatTab) {
+            ChatContent(state, { controller?.draft(it) }, { controller?.send(it) },
+                { controller?.stop() }, { controller?.loadConversation() },
+                { controller?.loadConversation(new = true) }, { controller?.loadConversation(it) },
+                { controller?.selectExhibit(it) }, modifier = Modifier.padding(padding).fillMaxSize(),
+                onMode = { controller?.chooseMode(); chapter = false; sources = false; tab = 0 })
+            return@Scaffold
+        }
         Column(modifier = Modifier.padding(padding).fillMaxSize()
             .verticalScroll(pageScroll).padding(Space.large),
             verticalArrangement = Arrangement.spacedBy(Space.medium)) {
@@ -190,12 +200,6 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
                         if (audience == Audience.CHILD) ChapterProgress(progress.progress)
                         if (audience == Audience.CHILD) TextButton(onClick = { introDone = false }) { Text("重看故事引入") }
-                    }
-                    tab == chatTab -> {
-                        ChatContent(state, { controller?.draft(it) }, { controller?.send(it) },
-                            { controller?.stop() }, { controller?.loadConversation() },
-                            { controller?.loadConversation(new = true) }, { controller?.loadConversation(it) },
-                            { controller?.selectExhibit(it) })
                     }
                     tab == 2 -> {
                         JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },

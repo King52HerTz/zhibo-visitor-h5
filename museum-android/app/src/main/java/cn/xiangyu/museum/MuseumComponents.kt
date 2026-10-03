@@ -5,6 +5,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,6 +23,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun MuseumButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
@@ -71,27 +76,40 @@ fun MuseumNotice(text: String, modifier: Modifier = Modifier, error: Boolean = f
 
 @Composable
 fun ChatBubble(line: ChatLine, onOption: (String) -> Unit, modifier: Modifier = Modifier,
-               enabled: Boolean = true) {
-    var expanded by remember(line) { mutableStateOf(false) }
+               enabled: Boolean = true, author: String = "阿帛") {
+    var expanded by remember(line.evidence) { mutableStateOf(false) }
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-        color = if (line.human) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
-        Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
-            Text(if (line.human) "你" else "阿帛", style = MaterialTheme.typography.labelLarge)
-            Text(line.text.ifEmpty { "正在核验资料…" }, style = MaterialTheme.typography.bodyLarge)
-            if (line.incomplete) Text("回复未完成", style = MaterialTheme.typography.bodySmall)
-            line.options.forEach { option ->
-                OutlinedButton(onClick = { onOption(option) }, enabled = enabled,
-                    modifier = Modifier.heightIn(min = Space.touch)) { Text(option) }
-            }
-            if (line.evidence.isNotEmpty()) {
-                TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "收起引用" else "展开引用 · ${line.evidence.size} 条")
+    Column(modifier.fillMaxWidth().padding(start = if (line.human) 40.dp else 0.dp,
+        end = if (line.human) 0.dp else 16.dp), horizontalAlignment = if (line.human) Alignment.End else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(Space.small)) {
+        Text(if (line.human) "你" else author, style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp,
+            bottomStart = if (line.human) 20.dp else 4.dp, bottomEnd = if (line.human) 4.dp else 20.dp),
+            color = if (line.human) MaterialTheme.colorScheme.primary else Color.White,
+            contentColor = if (line.human) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            border = if (line.human) null else BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))) {
+            Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                SelectionContainer { Text(line.text.ifEmpty { "正在核验资料…" }, style = MaterialTheme.typography.bodyLarge) }
+                if (line.incomplete) Text("回复未完成", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                line.options.forEach { option ->
+                    OutlinedButton(onClick = { onOption(option) }, enabled = enabled,
+                        modifier = Modifier.heightIn(min = Space.touch)) { Text(option) }
                 }
-                if (expanded) line.evidence.forEachIndexed { index, evidence ->
-                    Text("[${index + 1}] ${evidence.filename}", style = MaterialTheme.typography.titleSmall)
-                    Text(evidence.text, style = MaterialTheme.typography.bodyMedium)
-                    if (evidence.url != null) TextButton(onClick = { uriHandler.openUri(evidence.url) }) { Text("打开来源网页") }
+                if (line.evidence.isNotEmpty()) {
+                    TextButton(onClick = { expanded = !expanded }) {
+                        Text(if (expanded) "收起引用" else "展开引用 · ${line.evidence.size} 条")
+                    }
+                    if (expanded) line.evidence.forEachIndexed { index, evidence ->
+                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                            Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                                Text("[${index + 1}] ${evidence.filename}", style = MaterialTheme.typography.titleSmall)
+                                Text(evidence.text, style = MaterialTheme.typography.bodyMedium)
+                                if (evidence.url != null) TextButton(onClick = { uriHandler.openUri(evidence.url) }) { Text("打开来源网页") }
+                            }
+                        }
+                    }
                 }
             }
         }
