@@ -53,10 +53,10 @@ class ChatPresentationTest {
             ChatContent(state, {}, {}, {}, { refreshes++ }, {}, { selected = it }, {},
                 Modifier.fillMaxSize().systemBarsPadding())
         } }
-        compose.onNodeWithText("发送问题").assertIsDisplayed()
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
-        compose.onNodeWithText("发送问题").assertIsDisplayed()
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
         screenshot("chat-long-history.png")
         compose.onNodeWithText("历史会话").performClick()
         compose.onNodeWithText(second.title).performClick()
@@ -79,13 +79,29 @@ class ChatPresentationTest {
         } }
         compose.onNodeWithText("展开引用 · 1 条").performScrollTo().performClick()
         compose.onNodeWithText("这段来源摘录仅用于界面测试。").assertExists()
+        compose.onNodeWithText("问阿帛").assertIsDisplayed()
         screenshot("chat-references.png")
         compose.runOnIdle { state = state.copy(needsRefresh = true, draft = "保留的问题", status = "已停止显示；服务器可能仍在处理，请刷新会话再继续") }
-        compose.onNodeWithText("发送问题").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("发送问题").assertIsNotEnabled()
         compose.onNodeWithText("继续看材料").assertIsNotEnabled()
         compose.onNodeWithText("刷新会话").assertIsDisplayed().performClick()
         assertEquals(0, sends)
         assertEquals(1, refreshes)
         screenshot("chat-needs-refresh.png")
+    }
+
+    @Test fun incomingReplyDoesNotMoveTheReaderAwayFromEarlierMessages() {
+        var state by mutableStateOf(MuseumState(restoring = false, audience = Audience.CHILD,
+            messages = List(15) { index -> ChatLine(false, "第 $index 条旅行记录。" + "这是检查阅读位置的示例。".repeat(4)) }))
+        compose.setContent { MuseumTheme {
+            ChatContent(state, {}, {}, {}, {}, {}, {}, {}, Modifier.fillMaxSize().systemBarsPadding())
+        } }
+        compose.onNode(hasScrollToIndexAction()).performTouchInput { swipeDown(durationMillis = 400) }
+        compose.waitForIdle()
+        compose.onNodeWithText("回到最新回复").assertIsDisplayed()
+        compose.runOnIdle { state = state.copy(messages = state.messages + ChatLine(false, "这是一条新到达的界面测试回复。")) }
+        compose.onNodeWithText("回到最新回复").assertIsDisplayed().performClick()
+        compose.onNodeWithText("这是一条新到达的界面测试回复。").assertIsDisplayed()
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
     }
 }

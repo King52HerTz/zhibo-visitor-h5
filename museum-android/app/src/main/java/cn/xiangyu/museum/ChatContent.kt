@@ -15,10 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -29,22 +32,37 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
     var showSessions by remember { mutableStateOf(false) }
     val child = state.audience == Audience.CHILD
     val subject = FirstChapter.relics.firstOrNull { it.id == state.exhibitId }?.title ?: "博物馆主题"
+    val hasFeedback = state.status.isNotBlank() || state.error != null || state.needsRefresh
+    val lastItem = (if (state.messages.isEmpty()) 1 else state.messages.lastIndex) + if (hasFeedback) 1 else 0
     val list = rememberLazyListState()
     val dragged by list.interactionSource.collectIsDraggedAsState()
     var followLatest by remember(state.session?.id, state.audience) { mutableStateOf(true) }
     LaunchedEffect(dragged) { if (dragged) followLatest = false else if (!list.canScrollForward) followLatest = true }
-    LaunchedEffect(state.session?.id, state.audience, state.messages.size) {
+    LaunchedEffect(state.session?.id, state.audience) {
         followLatest = true
-        if (state.messages.isNotEmpty()) list.scrollToItem(state.messages.lastIndex, Int.MAX_VALUE)
+        if (state.messages.isNotEmpty() || hasFeedback) list.scrollToItem(lastItem, Int.MAX_VALUE)
     }
-    LaunchedEffect(state.messages.lastOrNull(), state.status, followLatest) {
-        if (followLatest && !dragged && state.messages.isNotEmpty()) {
-            list.scrollToItem(state.messages.lastIndex, Int.MAX_VALUE)
+    LaunchedEffect(state.messages.size) {
+        if (state.messages.lastOrNull()?.human == true) followLatest = true
+        if (followLatest && (state.messages.isNotEmpty() || hasFeedback)) list.scrollToItem(lastItem, Int.MAX_VALUE)
+    }
+    LaunchedEffect(state.messages.lastOrNull(), state.status, state.error, state.needsRefresh, followLatest) {
+        if (followLatest && !dragged && (state.messages.isNotEmpty() || hasFeedback)) {
+            list.scrollToItem(lastItem, Int.MAX_VALUE)
         }
     }
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxHeight < 240.dp
         Column {
-            Surface(color = MaterialTheme.colorScheme.surface) {
+            if (compact) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Space.small), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (child) "问阿帛" else "文物讲解", style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.semantics { heading() })
+                    Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = Space.small)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Image(painterResource(R.drawable.abo), null,
@@ -68,7 +86,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-            Box(Modifier.weight(1f)) {
+            Box(Modifier.weight(1f).clipToBounds()) {
                 LazyColumn(state = list, modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.large)) {
                     if (state.messages.isEmpty()) {
@@ -94,6 +112,22 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                         ChatBubble(line, { onSend(it) }, enabled = index == state.messages.lastIndex &&
                             !state.chatBusy && !state.needsRefresh, author = if (child) "阿帛" else "湘遇讲解")
                     }
+                    if (hasFeedback) item {
+                        Column(verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                            if (state.status.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                                if (state.chatBusy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Text(state.status, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                            }
+                            state.error?.let { MuseumNotice(it, error = true) }
+                            if (state.needsRefresh) {
+                                Text("问题已保留，请先刷新核对记录。", style = MaterialTheme.typography.bodySmall)
+                                FilledTonalButton(onClick = onReload, enabled = !state.chatBusy) { Text("刷新会话") }
+                            }
+                        }
+                    }
                 }
                 if (!followLatest && state.messages.isNotEmpty() && list.canScrollForward) {
                     FilledTonalButton(onClick = { followLatest = true }, modifier = Modifier.align(Alignment.BottomCenter).padding(Space.small)) {
@@ -101,7 +135,8 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                     }
                 }
             }
-            ChatComposer(state, child, onDraft, { onSend(null) }, onStop, onReload)
+            ChatComposer(state, child, compact, onDraft, { onSend(null) }, onStop)
+        }
         }
     }
     if (showSessions) {
@@ -154,32 +189,22 @@ private fun ChatWelcome(child: Boolean, disabled: Boolean, onDraft: (String) -> 
 }
 
 @Composable
-private fun ChatComposer(state: MuseumState, child: Boolean, onDraft: (String) -> Unit,
-                         onSend: () -> Unit, onStop: () -> Unit, onReload: () -> Unit) {
+private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, onDraft: (String) -> Unit,
+                         onSend: () -> Unit, onStop: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
         Column(Modifier.fillMaxWidth().padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
-            if (state.status.isNotBlank()) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                    if (state.chatBusy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    Text(state.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.semantics { stateDescription = state.status })
-                }
-            }
-            state.error?.let { MuseumNotice(it, error = true) }
-            if (state.needsRefresh) {
-                Text("问题已保留，请先刷新核对记录。", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = onReload, enabled = !state.chatBusy) { Text("刷新会话") }
-            }
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f), enabled = !state.chatBusy,
-                    label = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = 4,
+                    label = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = if (compact) 2 else 4,
                     shape = MaterialTheme.shapes.large, textStyle = MaterialTheme.typography.bodyMedium,
                     colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)))
                 Button(onClick = if (state.chatBusy) onStop else onSend,
                     enabled = state.chatBusy || (state.draft.isNotBlank() && !state.needsRefresh),
-                    modifier = Modifier.widthIn(max = 112.dp).heightIn(min = Space.touch), shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.widthIn(max = 112.dp).heightIn(min = Space.touch).semantics {
+                        contentDescription = if (state.chatBusy) "停止回复" else "发送问题"
+                    }, shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
-                    Text(if (state.chatBusy) "停止回复" else "发送问题")
+                    Text(if (state.chatBusy) "停止" else "发送")
                 }
             }
         }

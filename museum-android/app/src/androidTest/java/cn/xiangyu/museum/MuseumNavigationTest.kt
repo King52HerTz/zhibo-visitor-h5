@@ -119,7 +119,7 @@ class MuseumNavigationTest {
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
         compose.onNode(hasSetTextAction() and hasText("想问阿帛什么？")).assertIsDisplayed().performTextInput("介绍这件衣服")
-        compose.onNodeWithText("发送问题").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().performClick()
         compose.waitUntil(5000) {
             val state = ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value
             !state.chatBusy && state.messages.any { it.options.isNotEmpty() }
@@ -130,5 +130,48 @@ class MuseumNavigationTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("请选一个测试方向").assertExists()
         org.junit.Assert.assertEquals(1, server.requests.count { it.first == "/mobile/chat/stream" })
+    }
+
+    @Test fun chatInputRemainsVisibleAboveTheRealKeyboard() {
+        compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performClick()
+        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.onNode(hasSetTextAction()).performClick().performTextInput("这件衣服有什么线索？")
+        compose.waitUntil(5000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        }
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().assertIsEnabled()
+        compose.onNode(hasText("问阿帛") and hasClickAction()).assertDoesNotExist()
+        compose.waitForIdle()
+        android.os.SystemClock.sleep(500)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        File(instrumentation.targetContext.getExternalFilesDir(null), "chat-real-keyboard.png").outputStream().use {
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+        }
+    }
+
+    @Test fun landscapeChatKeepsInputVisibleWithTheKeyboard() {
+        compose.onNodeWithText("成人模式").performScrollTo().performClick()
+        compose.onNode(hasText("讲解") and hasClickAction()).performClick()
+        compose.runOnUiThread { compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+        compose.waitUntil(5000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+        compose.onNode(hasSetTextAction()).performClick().performTextInput("材料有哪些线索？")
+        compose.waitUntil(5000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        }
+        compose.waitForIdle()
+        android.os.SystemClock.sleep(500)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        File(instrumentation.targetContext.getExternalFilesDir(null), "chat-landscape-keyboard.png").outputStream().use {
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+        }
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().assertIsEnabled()
+        compose.onNode(hasSetTextAction()).assertIsDisplayed()
     }
 }
