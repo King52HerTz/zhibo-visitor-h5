@@ -143,6 +143,24 @@ class MuseumNavigationTest {
         org.junit.Assert.assertEquals(1, server.requests.count { it.first == "/mobile/chat/stream" })
     }
 
+    @Test fun keyboardSendProducesOneStreamRequestAndBlankDraftDoesNotResend() {
+        compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performClick()
+        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
+        compose.onNode(hasSetTextAction()).performTextInput("键盘发送的界面测试问题")
+        compose.onNode(hasSetTextAction()).performImeAction()
+        compose.waitUntil(5000) {
+            val state = ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value
+            !state.chatBusy && state.messages.any { it.options.isNotEmpty() }
+        }
+        compose.onNodeWithText("键盘发送的界面测试问题").assertExists()
+        compose.onNodeWithContentDescription("发送问题").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performImeAction()
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals(1, server.requests.count { it.first == "/mobile/chat/stream" })
+    }
+
     @Test fun chatInputRemainsVisibleAboveTheRealKeyboard() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         compose.onNodeWithText("跳过引入").performClick()

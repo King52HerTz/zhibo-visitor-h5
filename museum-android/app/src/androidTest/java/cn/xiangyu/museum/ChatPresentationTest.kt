@@ -83,6 +83,7 @@ class ChatPresentationTest {
         screenshot("chat-references.png")
         compose.runOnIdle { state = state.copy(needsRefresh = true, draft = "保留的问题", status = "已停止显示；服务器可能仍在处理，请刷新会话再继续") }
         compose.onNodeWithContentDescription("发送问题").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performImeAction()
         compose.onNodeWithText("继续看材料").assertIsNotEnabled()
         compose.onNodeWithText("刷新会话").assertIsDisplayed().performClick()
         assertEquals(0, sends)

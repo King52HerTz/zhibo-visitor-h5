@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -200,6 +203,7 @@ private fun ChatWelcome(child: Boolean, disabled: Boolean, onDraft: (String) -> 
 @Composable
 private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, onDraft: (String) -> Unit,
                          onSend: () -> Unit, onStop: () -> Unit) {
+    val canSend = !state.chatBusy && !state.needsRefresh && state.draft.isNotBlank()
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = if (compact) 4.dp else Space.medium),
             verticalArrangement = Arrangement.spacedBy(Space.small)) {
@@ -207,10 +211,12 @@ private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, o
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f), enabled = !state.chatBusy,
                     label = if (compact) null else ({ Text(if (child) "想问阿帛什么？" else "想了解什么？") }),
                     placeholder = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = if (compact) 1 else 4,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
                     shape = MaterialTheme.shapes.large, textStyle = MaterialTheme.typography.bodyMedium,
                     colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)))
                 Button(onClick = if (state.chatBusy) onStop else onSend,
-                    enabled = state.chatBusy || (state.draft.isNotBlank() && !state.needsRefresh),
+                    enabled = state.chatBusy || canSend,
                     modifier = Modifier.widthIn(max = 112.dp).heightIn(min = Space.touch).semantics {
                         contentDescription = if (state.chatBusy) "停止回复" else "发送问题"
                     }, shape = MaterialTheme.shapes.large,
