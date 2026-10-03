@@ -33,7 +33,7 @@ internal fun BrandSplash(onFinished: () -> Unit) {
 internal fun StoryInvitation(previewOnly: Boolean = false, onReady: () -> Unit) {
     val context = LocalContext.current
     val videos = remember(context) { storyVideoResources(context) }
-    if (!previewOnly && videos.all { it != 0 }) StoryVideoInvitation(videos, onReady)
+    if (!previewOnly && videos.first() != 0) StoryVideoInvitation(videos.take(1), onReady)
     else StoryboardInvitation(onReady)
 }
 

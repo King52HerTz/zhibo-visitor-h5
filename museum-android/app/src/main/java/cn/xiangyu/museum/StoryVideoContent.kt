@@ -51,7 +51,7 @@ internal fun StoryVideoInvitation(videos: List<Int>, onReady: () -> Unit, modifi
     Column(modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(Space.large),
         verticalArrangement = Arrangement.spacedBy(Space.medium)) {
         Text("衣服里的秘密", style = MaterialTheme.typography.headlineMedium)
-        Text("${frame + 1} / 3 · ${titles[frame]}", style = MaterialTheme.typography.titleMedium)
+        Text("${frame + 1} / ${videos.size} · ${titles[frame]}", style = MaterialTheme.typography.titleMedium)
         key(frame, replay) {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
                 AndroidView(factory = { context ->
@@ -92,8 +92,8 @@ internal fun StoryVideoInvitation(videos: List<Int>, onReady: () -> Unit, modifi
             }) { Text(if (failed) "重试视频" else "重播本幕") }
         }
         if (complete) MuseumButton(onClick = {
-            if (frame < 2) { player?.stopPlayback(); frame++ } else latestReady()
-        }) { Text(listOf("跟随纸蝶", "打开手帐", "开始探索")[frame]) }
+            if (frame < videos.lastIndex) { player?.stopPlayback(); frame++ } else latestReady()
+        }) { Text(if (videos.size == 1) "跟随纸蝶" else listOf("跟随纸蝶", "打开手帐", "开始探索")[frame]) }
         TextButton(onClick = { latestReady() }) { Text("跳过引入") }
         Text("原创故事 · AI 生成视频", style = MaterialTheme.typography.labelSmall)
     }

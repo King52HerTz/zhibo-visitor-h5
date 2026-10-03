@@ -1,6 +1,5 @@
 package cn.xiangyu.museum
 
-import android.graphics.Bitmap
 import android.view.View
 import android.view.ViewGroup
 import android.widget.VideoView
@@ -12,7 +11,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -46,26 +44,12 @@ class StoryVideoTest {
         playing
     }
 
-    @Test fun realVideosPlayInOrderAndOnlyFinishAfterThirdClip() {
+    @Test fun invitationOnlyPlaysOpeningWithoutPrematureEnding() {
         setup()
         waitPlaying()
         compose.onNodeWithText("开始探索").assertDoesNotExist()
         compose.waitUntil(15000) { compose.onAllNodesWithText("跟随纸蝶").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("跟随纸蝶").performClick()
-        compose.onNodeWithText("2 / 3 · 走进衣坊").assertExists()
-        waitPlaying()
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        File(instrumentation.targetContext.getExternalFilesDir(null), "story-video-playing.png").outputStream().use {
-            val bitmap = instrumentation.uiAutomation.takeScreenshot()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-            bitmap.recycle()
-        }
-        compose.waitUntil(15000) { compose.onAllNodesWithText("打开手帐").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("打开手帐").performClick()
-        compose.onNodeWithText("3 / 3 · 收下探索邀请").assertExists()
-        compose.waitUntil(15000) { compose.onAllNodesWithText("开始探索").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("开始探索").performClick()
         compose.onNodeWithText("已进入探索").assertExists()
         compose.runOnIdle { assertNull(player()) }
     }
