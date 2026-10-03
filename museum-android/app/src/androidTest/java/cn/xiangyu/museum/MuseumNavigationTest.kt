@@ -138,6 +138,17 @@ class MuseumNavigationTest {
         compose.onNodeWithText("请选一个测试方向").assertExists()
         compose.onNodeWithText("展开引用 · 1 条").performScrollTo().performClick()
         compose.onNodeWithText("测试依据").assertExists()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        if (androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true) {
+            org.junit.Assert.assertTrue(instrumentation.uiAutomation.performGlobalAction(
+                android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+            compose.waitUntil(5000) {
+                androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == false
+            }
+        }
+        compose.onNodeWithText("测试依据").performScrollTo().assertIsDisplayed()
         screenshot("chat-main-references.png")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("请选一个测试方向").assertExists()

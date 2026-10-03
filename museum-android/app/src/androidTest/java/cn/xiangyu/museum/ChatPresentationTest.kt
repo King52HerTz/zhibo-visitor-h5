@@ -32,7 +32,7 @@ class ChatPresentationTest {
         compose.setContent {
             MuseumTheme {
                 ChatContent(state, { state = state.copy(draft = it) }, {}, {}, {}, {}, {}, {},
-                    Modifier.fillMaxSize().systemBarsPadding())
+                    Modifier.fillMaxSize().systemBarsPadding().imePadding())
             }
         }
         screenshot("chat-after-empty.png")
@@ -51,7 +51,7 @@ class ChatPresentationTest {
             })
         compose.setContent { MuseumTheme {
             ChatContent(state, {}, {}, {}, { refreshes++ }, {}, { selected = it }, {},
-                Modifier.fillMaxSize().systemBarsPadding())
+                Modifier.fillMaxSize().systemBarsPadding().imePadding())
         } }
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
@@ -75,7 +75,7 @@ class ChatPresentationTest {
                     evidence = listOf(Evidence("演示资料", "这段来源摘录仅用于界面测试。", null)), options = listOf("继续看材料")))))
         compose.setContent { MuseumTheme {
             ChatContent(state, { state = state.copy(draft = it) }, { sends++ }, {}, { refreshes++ }, {}, {}, {},
-                Modifier.fillMaxSize().systemBarsPadding())
+                Modifier.fillMaxSize().systemBarsPadding().imePadding())
         } }
         compose.onNodeWithText("展开引用 · 1 条").performScrollTo().performClick()
         compose.onNodeWithText("这段来源摘录仅用于界面测试。").assertExists()
@@ -97,7 +97,7 @@ class ChatPresentationTest {
         var state by mutableStateOf(MuseumState(restoring = false, audience = Audience.CHILD,
             messages = List(15) { index -> ChatLine(false, "第 $index 条旅行记录。" + "这是检查阅读位置的示例。".repeat(4)) }))
         compose.setContent { MuseumTheme {
-            ChatContent(state, {}, {}, {}, {}, {}, {}, {}, Modifier.fillMaxSize().systemBarsPadding())
+            ChatContent(state, {}, {}, {}, {}, {}, {}, {}, Modifier.fillMaxSize().systemBarsPadding().imePadding())
         } }
         compose.onNode(hasScrollToIndexAction()).performTouchInput { swipeDown(durationMillis = 400) }
         compose.waitForIdle()

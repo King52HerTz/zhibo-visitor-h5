@@ -216,8 +216,8 @@ private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, o
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f), enabled = !state.chatBusy,
                     label = if (compact) null else ({ Text(if (child) "想问阿帛什么？" else "想了解什么？") }),
-                    placeholder = { Text(if (child) "想问阿帛什么？" else "想了解什么？",
-                        maxLines = 1, overflow = TextOverflow.Ellipsis) }, maxLines = if (compact) 1 else 4,
+                    placeholder = if (compact) ({ Text(if (child) "想问阿帛什么？" else "想了解什么？",
+                        maxLines = 1, overflow = TextOverflow.Ellipsis) }) else null, maxLines = if (compact) 1 else 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
                     shape = MaterialTheme.shapes.large, textStyle = MaterialTheme.typography.bodyMedium,
