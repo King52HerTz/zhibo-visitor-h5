@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -192,6 +193,8 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
 class MuseumViewModel(application: Application) : AndroidViewModel(application) {
     private val api = HttpMuseumApi()
     private val progressStore = SqliteProgressStore(application)
+    private val observationStore = SqliteLocalObservationStore(application)
+    val observations = LocalObservationController(application, observationStore, viewModelScope)
     val progress = ProgressController(api, progressStore, viewModelScope)
     val controller = MuseumController(api, SecureTokenStore(application), viewModelScope, BuildConfig.DEBUG, progress)
     private val connectivity = application.getSystemService(android.net.ConnectivityManager::class.java)
@@ -200,10 +203,20 @@ class MuseumViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch { progress.sync() }
         }
     }
-    init { connectivity.registerDefaultNetworkCallback(networkCallback) }
+    init {
+        connectivity.registerDefaultNetworkCallback(networkCallback)
+        viewModelScope.launch {
+            controller.state.collect { state ->
+                observations.bind(if (state.username != null && state.audience != null)
+                    ProgressKey(state.endpoint, state.username, state.audience) else null, state.restoring,
+                    waitingForMode = state.username != null && state.audience == null)
+            }
+        }
+    }
     override fun onCleared() {
         connectivity.unregisterNetworkCallback(networkCallback)
         api.close()
         progressStore.close()
+        observationStore.close()
     }
 }

@@ -2,6 +2,9 @@ package cn.xiangyu.museum
 
 import android.os.Bundle
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -33,11 +36,25 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 class MainActivity : ComponentActivity() {
+    private val cameraLaunchers = mutableMapOf<String, ActivityResultLauncher<Uri>>()
+    private fun registerCamera(id: String): ActivityResultLauncher<Uri> = cameraLaunchers.getOrPut(id) {
+        activityResultRegistry.register("journal-camera-$id", ActivityResultContracts.TakePicture()) { success ->
+            ViewModelProvider(this)[MuseumViewModel::class.java].observations.cameraResult(id, success)
+            cameraLaunchers.remove(id)?.unregister()
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val model = ViewModelProvider(this)[MuseumViewModel::class.java]
-        setContent { MuseumTheme { MuseumApp(model.controller, progressController = model.progress) } }
+        model.observations.pendingCaptureId()?.let { registerCamera(it) }
+        setContent { MuseumTheme { MuseumApp(model.controller, progressController = model.progress,
+            observationController = model.observations, onCamera = { id, uri -> registerCamera(id).launch(uri) }) } }
+    }
+    override fun onDestroy() {
+        cameraLaunchers.values.forEach { it.unregister() }
+        cameraLaunchers.clear()
+        super.onDestroy()
     }
     override fun onResume() {
         super.onResume()
@@ -46,27 +63,33 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progressController: ProgressController? = null) {
+fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progressController: ProgressController? = null,
+              observationController: LocalObservationController? = null, onCamera: (String, Uri) -> Unit = { _, _ -> }) {
     val state by controller.state.collectAsStateWithLifecycle()
     val progress = progressController?.state?.collectAsStateWithLifecycle()?.value ?: ProgressState()
     var splash by rememberSaveable { mutableStateOf(true) }
     if (splash) BrandSplash { splash = false }
-    else key(state.endpoint, state.username) { MuseumPages(state, controller, modifier, progress, progressController) }
+    else key(state.endpoint, state.username) { MuseumPages(state, controller, modifier, progress, progressController,
+        observationController, onCamera) }
 }
 
 @Composable
 private fun MuseumPages(state: MuseumState, controller: MuseumController?, modifier: Modifier = Modifier,
-                        progress: ProgressState = ProgressState(), progressController: ProgressController? = null) {
+                        progress: ProgressState = ProgressState(), progressController: ProgressController? = null,
+                        observationController: LocalObservationController? = null, onCamera: (String, Uri) -> Unit = { _, _ -> }) {
     val mode = state.audience?.name.orEmpty()
     var tab by rememberSaveable(mode) { mutableIntStateOf(0) }
     var introDone by rememberSaveable(mode) { mutableStateOf(false) }
     var chapter by rememberSaveable { mutableStateOf(false) }
     var sources by rememberSaveable { mutableStateOf(false) }
     var taskId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
+    val observation = observationController?.state?.collectAsStateWithLifecycle()?.value
+    val journalTab = if (state.audience == Audience.ADULT) 3 else 2
     val pageScroll = rememberScrollState()
-    LaunchedEffect(tab, chapter, taskId, mode) { pageScroll.scrollTo(0) }
+    LaunchedEffect(tab, chapter, taskId, mode, observation?.editing) { pageScroll.scrollTo(0) }
     BackHandler(mode.isNotEmpty()) {
         when {
+            tab == journalTab && observation?.editing == true -> observationController?.requestCancelDraft()
             taskId != null -> taskId = null
             sources -> sources = false
             chapter -> chapter = false
@@ -170,6 +193,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         Text("我的旅程", style = MaterialTheme.typography.headlineLarge)
                         Text(state.username, style = MaterialTheme.typography.titleMedium)
                         OutlinedButton(onClick = { controller?.loadConversation(); tab = chatTab }) { Text("我的讲解记录") }
+                        observationController?.let { LocalObservationPanel(audience, it, onCamera) }
                         OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
                     }
                     tab == 0 -> if (taskId != null) {
@@ -202,10 +226,13 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         if (audience == Audience.CHILD) TextButton(onClick = { introDone = false }) { Text("重看故事引入") }
                     }
                     tab == 2 -> {
-                        JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },
-                            onSync = { progressController?.sync() })
-                        if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
-                        OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                        observationController?.let { LocalObservationPanel(audience, it, onCamera) }
+                        if (observation?.editing != true) {
+                            JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },
+                                onSync = { progressController?.sync() })
+                            if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
+                            OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                        }
                     }
                 }
             }
