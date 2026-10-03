@@ -3,6 +3,8 @@ package cn.xiangyu.museum
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -52,6 +54,28 @@ class LocalObservationJourneyTest {
         }
     }
 
+    private fun navigationLabelsFitTheirItems(labels: List<String>) {
+        labels.forEach { label ->
+            val item = compose.onNode(hasText(label) and hasClickAction()).assertIsDisplayed().fetchSemanticsNode()
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(label, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> assertTrue(action(layouts)) }
+            val layout = layouts.single()
+            val measurement = "size=${layout.size}, paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}, " +
+                "overflowWidth=${layout.didOverflowWidth}, overflowHeight=${layout.didOverflowHeight}, " +
+                "lines=${layout.lineCount}, item=${item.boundsInRoot}, constraints=${layout.layoutInput.constraints}"
+            assertEquals(label, layout.layoutInput.text.text)
+            assertFalse("$label must not overflow its text layout: $measurement", layout.hasVisualOverflow)
+            assertTrue("$label measured text width must fit its navigation item: $measurement", layout.size.width <= item.boundsInRoot.width + 1f)
+            assertTrue("$label measured text height must fit its navigation item: $measurement", layout.size.height <= item.boundsInRoot.height + 1f)
+            repeat(layout.lineCount) { line ->
+                assertFalse("$label must remain complete", layout.isLineEllipsized(line))
+                assertTrue("$label drawn line must fit its text layout: $measurement",
+                    layout.getLineLeft(line) >= -1f && layout.getLineRight(line) <= layout.size.width + 1f)
+            }
+        }
+    }
+
     @After fun cleanup() {
         compose.runOnUiThread { model().controller.logout() }
         compose.waitUntil(5000) { !model().controller.state.value.authBusy }
@@ -70,6 +94,7 @@ class LocalObservationJourneyTest {
         compose.waitUntil(5000) { !model().progress.state.value.loading && !model().observations.state.value.loading }
         val before = model().progress.state.value.progress
         compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
+        navigationLabelsFitTheirItems(listOf("探索", "问阿帛", "我的手帐"))
         compose.onNodeWithText("我的观察记录").assertExists()
         shot("p4-main-empty")
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
@@ -88,12 +113,14 @@ class LocalObservationJourneyTest {
         compose.waitUntil(5000) { !model().observations.state.value.editing && model().observations.state.value.records.size == 1 }
         compose.onNodeWithText("测试观察：我注意到轻薄的丝纱。").performScrollTo().assertIsDisplayed()
         shot("p4-main-saved")
+        navigationLabelsFitTheirItems(listOf("探索", "问阿帛", "我的手帐"))
         assertEquals(before, model().progress.state.value.progress)
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("测试观察：我注意到轻薄的丝纱。").assertExists()
         compose.onNodeWithText("儿童模式 · 切换模式").performScrollTo().performClick()
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
         compose.onNode(hasText("我的") and hasClickAction()).performClick()
+        navigationLabelsFitTheirItems(listOf("故事", "文物", "讲解", "我的"))
         compose.waitUntil(5000) { !model().observations.state.value.loading }
         compose.onNodeWithText("这一页，等你的发现").assertExists()
         compose.onNodeWithText("测试观察：我注意到轻薄的丝纱。").assertDoesNotExist()
@@ -131,7 +158,9 @@ class LocalObservationJourneyTest {
         compose.onNodeWithText("允许拍照时拍一张").performScrollTo().performClick()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         compose.waitUntil(5000) {
-            automation.rootInActiveWindow?.packageName?.toString() in setOf("com.android.camera2", "com.android.permissioncontroller")
+            val foreground = automation.rootInActiveWindow?.packageName?.toString()
+            !foreground.isNullOrBlank() && foreground != compose.activity.packageName &&
+                model().observations.pendingCaptureId() != null
         }
         assertNotNull(model().observations.pendingCaptureId())
         repeat(3) {
@@ -140,7 +169,8 @@ class LocalObservationJourneyTest {
                 android.os.SystemClock.sleep(300)
             }
         }
-        compose.waitUntil(5000) { model().observations.pendingCaptureId() == null }
+        compose.waitUntil(5000) { model().observations.pendingCaptureId() == null &&
+            automation.rootInActiveWindow?.packageName?.toString() == compose.activity.packageName }
         compose.onNode(hasSetTextAction() and hasText("我的发现"))
             .assertTextContains("测试观察：取消拍照后继续记录。")
         assertNull(model().observations.state.value.photo)

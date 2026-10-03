@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -123,10 +125,17 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         if (audience != null && !(tab == chatTab && keyboardVisible)) Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp
-        ) { NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+        ) { BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val columns = if (audience == Audience.ADULT) 4 else 3
+            val navigationInsets = NavigationBarDefaults.windowInsets
+            val insetPadding = navigationInsets.asPaddingValues()
+            val direction = LocalLayoutDirection.current
+            val labelWidth = (maxWidth - insetPadding.calculateLeftPadding(direction) -
+                insetPadding.calculateRightPadding(direction) - Space.small * (columns - 1)) / columns - Space.small
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp,
+                windowInsets = navigationInsets) {
             val sheet = ImageBitmap.imageResource(if (audience == Audience.ADULT)
                 R.drawable.adult_navigation_sprites else R.drawable.navigation_sprites)
-            val columns = if (audience == Audience.ADULT) 4 else 3
             val cell = IntSize(sheet.width / columns, sheet.height / 2)
             val labels = if (audience == Audience.ADULT) listOf("故事", "文物", "讲解", "我的")
                 else listOf("探索", "问阿帛", "我的手帐")
@@ -145,14 +154,15 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                     Image(painter, contentDescription = null,
                         modifier = Modifier.size(if (audience == Audience.CHILD) 48.dp else 36.dp))
                 },
-                    label = { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+                    label = { Text(label, modifier = Modifier.width(labelWidth), textAlign = TextAlign.Center,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
                     colors = NavigationBarItemDefaults.colors(
                         indicatorColor = Color.Transparent,
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
             }
-        } }
+        } } }
     }) { padding ->
         if (state.username != null && audience != null && tab == chatTab) {
             ChatContent(state, { controller?.draft(it) }, { controller?.send(it) },
