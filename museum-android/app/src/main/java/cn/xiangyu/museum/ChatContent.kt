@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -53,14 +55,21 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
     }
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-        val compact = maxHeight < 240.dp
-        Column {
+        val compact = maxHeight < 360.dp
+        val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        Column(Modifier.widthIn(max = 760.dp).fillMaxSize().align(Alignment.TopCenter)) {
             if (compact) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(Space.small), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (child) "问阿帛" else "文物讲解", style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.semantics { heading() })
-                    Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (!keyboardOpen) {
+                        if (onMode != null) TextButton(onClick = onMode, enabled = !state.chatBusy) { Text("切换模式") }
+                        TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
+                        TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
+                    }
                 }
             } else Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = Space.small)) {
@@ -192,10 +201,12 @@ private fun ChatWelcome(child: Boolean, disabled: Boolean, onDraft: (String) -> 
 private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, onDraft: (String) -> Unit,
                          onSend: () -> Unit, onStop: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
-        Column(Modifier.fillMaxWidth().padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = if (compact) 4.dp else Space.medium),
+            verticalArrangement = Arrangement.spacedBy(Space.small)) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f), enabled = !state.chatBusy,
-                    label = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = if (compact) 2 else 4,
+                    label = if (compact) null else ({ Text(if (child) "想问阿帛什么？" else "想了解什么？") }),
+                    placeholder = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = if (compact) 1 else 4,
                     shape = MaterialTheme.shapes.large, textStyle = MaterialTheme.typography.bodyMedium,
                     colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)))
                 Button(onClick = if (state.chatBusy) onStop else onSend,

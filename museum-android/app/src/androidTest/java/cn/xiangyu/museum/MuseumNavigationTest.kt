@@ -15,6 +15,17 @@ class MuseumNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var server: TestMuseumServer
 
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        android.os.SystemClock.sleep(250)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use {
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+        }
+    }
+
     @Before fun loginUsingTestService() {
         server = TestMuseumServer()
         compose.runOnUiThread {
@@ -136,6 +147,8 @@ class MuseumNavigationTest {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         compose.onNodeWithText("跳过引入").performClick()
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.onNode(hasSetTextAction()).assertIsDisplayed()
+        screenshot("chat-main-empty.png")
         compose.onNode(hasSetTextAction()).performClick().performTextInput("这件衣服有什么线索？")
         compose.waitUntil(5000) {
             androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
@@ -145,12 +158,7 @@ class MuseumNavigationTest {
         compose.onNode(hasText("问阿帛") and hasClickAction()).assertDoesNotExist()
         compose.waitForIdle()
         android.os.SystemClock.sleep(500)
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        File(instrumentation.targetContext.getExternalFilesDir(null), "chat-real-keyboard.png").outputStream().use {
-            val bitmap = instrumentation.uiAutomation.takeScreenshot()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-            bitmap.recycle()
-        }
+        screenshot("chat-real-keyboard.png")
     }
 
     @Test fun landscapeChatKeepsInputVisibleWithTheKeyboard() {
@@ -166,12 +174,24 @@ class MuseumNavigationTest {
         compose.waitForIdle()
         android.os.SystemClock.sleep(500)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        File(instrumentation.targetContext.getExternalFilesDir(null), "chat-landscape-keyboard.png").outputStream().use {
-            val bitmap = instrumentation.uiAutomation.takeScreenshot()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-            bitmap.recycle()
-        }
+        screenshot("chat-landscape-keyboard.png")
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().assertIsEnabled()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
+        org.junit.Assert.assertTrue(instrumentation.uiAutomation.performGlobalAction(
+            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+        compose.waitUntil(5000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == false
+        }
+        try {
+            compose.waitUntil(5000) { runCatching {
+                compose.onNodeWithText("历史会话").assertIsDisplayed()
+                compose.onNodeWithText("新对话").assertIsDisplayed()
+                compose.onNode(hasText("讲解") and hasClickAction()).assertIsDisplayed()
+                true
+            }.getOrDefault(false) }
+        } finally {
+            screenshot("chat-landscape-closed.png")
+        }
     }
 }
