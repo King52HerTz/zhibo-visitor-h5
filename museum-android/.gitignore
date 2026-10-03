@@ -10,3 +10,5 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+.godot/
+*.gd.uid

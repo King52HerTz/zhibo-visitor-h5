@@ -1,6 +1,7 @@
 package cn.xiangyu.museum
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +74,20 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         }
     }
     val audience = state.audience
+    val context = LocalContext.current
+    fun openPuzzle() {
+        if (audience == Audience.CHILD && state.username != null) {
+            context.startActivity(Intent(context, PuzzleActivity::class.java)
+                .putExtra("endpoint", state.endpoint).putExtra("username", state.username))
+        }
+    }
+    fun openStorySlice() {
+        if (audience == Audience.CHILD && state.username != null) {
+            context.startActivity(Intent(context, PuzzleActivity::class.java)
+                .putExtra("endpoint", state.endpoint).putExtra("username", state.username)
+                .putExtra("story_slice", true))
+        }
+    }
     val chatTab = if (audience == Audience.ADULT) 2 else 1
     if (audience == Audience.CHILD && !introDone) {
         BackHandler { controller?.chooseMode() }
@@ -154,6 +170,8 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         }
                     } else if (chapter) {
                         OutlinedButton(onClick = { chapter = false; sources = false }) { Text("返回探索") }
+                        if (audience == Audience.CHILD) MuseumButton(onClick = { openPuzzle() }, enabled = !progress.loading) { Text("进入横屏衣坊") }
+                        if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
                         if (audience == Audience.CHILD) WorkshopContent(progress.progress, onTask = { taskId = it.id })
                         OutlinedButton(onClick = { sources = !sources }) { Text(if (sources) "收起档案" else "文物与来源") }
                         if (audience == Audience.ADULT || sources) ChapterContent(audience,
@@ -165,7 +183,11 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                             Text(if (audience == Audience.CHILD) "问阿帛 · 本章" else "本章讲解")
                         }
                     } else {
-                        HomeContent(audience, onOpen = { chapter = true })
+                        HomeContent(audience, onOpen = {
+                            if (audience == Audience.CHILD) openPuzzle() else chapter = true
+                        })
+                        if (audience == Audience.CHILD) TextButton(onClick = { chapter = true }) { Text("文物与观察任务") }
+                        if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
                         if (audience == Audience.CHILD) ChapterProgress(progress.progress)
                         if (audience == Audience.CHILD) TextButton(onClick = { introDone = false }) { Text("重看故事引入") }
                     }
@@ -178,6 +200,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                     tab == 2 -> {
                         JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },
                             onSync = { progressController?.sync() })
+                        if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
                         OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
                     }
                 }
