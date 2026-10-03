@@ -118,8 +118,8 @@ class MuseumNavigationTest {
         compose.onNodeWithText("跳过引入").performClick()
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
-        compose.onNode(hasSetTextAction() and hasText("想问阿帛什么？")).performScrollTo().performTextInput("介绍这件衣服")
-        compose.onNodeWithText("发送问题").performScrollTo().performClick()
+        compose.onNode(hasSetTextAction() and hasText("想问阿帛什么？")).assertIsDisplayed().performTextInput("介绍这件衣服")
+        compose.onNodeWithText("发送问题").assertIsDisplayed().performClick()
         compose.waitUntil(5000) {
             val state = ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value
             !state.chatBusy && state.messages.any { it.options.isNotEmpty() }
