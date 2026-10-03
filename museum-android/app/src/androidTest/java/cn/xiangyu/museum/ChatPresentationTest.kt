@@ -107,4 +107,36 @@ class ChatPresentationTest {
         compose.onNodeWithText("这是一条新到达的界面测试回复。").assertIsDisplayed()
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
     }
+
+    @Test fun newConversationReturnsToTheWelcomeInsteadOfTheOldReadingOffset() {
+        var state by mutableStateOf(MuseumState(restoring = false, audience = Audience.CHILD,
+            session = ChatSessionInfo("test-old-reading", "较长的旅行记录", null),
+            messages = List(15) { ChatLine(false, "这是一段旧对话。".repeat(8)) }))
+        compose.setContent { MuseumTheme {
+            ChatContent(state, {}, {}, {}, {}, {
+                state = state.copy(session = null, messages = emptyList(), draft = "")
+            }, {}, {}, Modifier.fillMaxSize().systemBarsPadding().imePadding())
+        } }
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(14)
+        compose.onNodeWithText("新对话").performClick()
+        compose.onNodeWithText("你好，我是阿帛").assertIsDisplayed()
+        compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test fun sendingFromEarlierMessagesFollowsTheNewQuestionAndReply() {
+        var state by mutableStateOf(MuseumState(restoring = false, audience = Audience.CHILD,
+            draft = "请继续讲解", session = ChatSessionInfo("test-reading-send", "旅行记录", null),
+            messages = List(15) { ChatLine(false, "这是一段旧对话。".repeat(8)) }))
+        compose.setContent { MuseumTheme {
+            ChatContent(state, {}, {
+                state = state.copy(draft = "", messages = state.messages +
+                    listOf(ChatLine(true, "请继续讲解"), ChatLine(false, "这是新回复。")))
+            }, {}, {}, {}, {}, {}, Modifier.fillMaxSize().systemBarsPadding().imePadding())
+        } }
+        compose.onNode(hasScrollToIndexAction()).performTouchInput { swipeDown(durationMillis = 400) }
+        compose.onNodeWithText("回到最新回复").assertIsDisplayed()
+        compose.onNodeWithContentDescription("发送问题").performClick()
+        compose.onNodeWithText("这是新回复。").assertIsDisplayed()
+        compose.onNodeWithText("回到最新回复").assertDoesNotExist()
+    }
 }

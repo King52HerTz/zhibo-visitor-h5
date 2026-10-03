@@ -46,6 +46,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
     LaunchedEffect(state.session?.id, state.audience) {
         followLatest = true
         if (state.messages.isNotEmpty() || hasFeedback) list.scrollToItem(lastItem, Int.MAX_VALUE)
+        else list.scrollToItem(0)
     }
     LaunchedEffect(state.messages.size) {
         if (state.messages.lastOrNull()?.human == true) followLatest = true
@@ -121,7 +122,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                             }
                         }
                     } else itemsIndexed(state.messages) { index, line ->
-                        ChatBubble(line, { onSend(it) }, enabled = index == state.messages.lastIndex &&
+                        ChatBubble(line, { followLatest = true; onSend(it) }, enabled = index == state.messages.lastIndex &&
                             !state.chatBusy && !state.needsRefresh, author = if (child) "阿帛" else "湘遇讲解")
                     }
                     if (hasFeedback) item {
@@ -153,7 +154,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                     }
                 }
             }
-            ChatComposer(state, child, compact, onDraft, { onSend(null) }, onStop)
+            ChatComposer(state, child, compact, onDraft, { followLatest = true; onSend(null) }, onStop)
         }
         }
     }
