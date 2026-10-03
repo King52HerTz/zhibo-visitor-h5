@@ -37,7 +37,7 @@ class WorkshopIntegrationTest {
                 compose.onNodeWithText("儿童模式").performScrollTo().performClick()
                 compose.onNodeWithText("跳过引入").performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading }
-                compose.onNodeWithText("开始探索").performScrollTo().performClick()
+                compose.onNodeWithText("文物与观察任务").performScrollTo().performClick()
                 compose.onNodeWithText("阿帛的汉代衣坊").performScrollTo().assertIsDisplayed()
                 shot("workshop-app-scene.png")
                 compose.onNodeWithText("衣服", substring = false).performScrollTo().performClick()

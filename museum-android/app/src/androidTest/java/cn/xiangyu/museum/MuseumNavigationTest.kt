@@ -57,7 +57,7 @@ class MuseumNavigationTest {
         compose.onNodeWithText("跳过引入").performClick()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("今天，寄一封信给汉代").assertExists()
-        compose.onNodeWithText("开始探索").performScrollTo().performClick()
+        compose.onNodeWithText("文物与观察任务").performScrollTo().performClick()
         compose.onNodeWithText("文物与来源").performScrollTo().performClick()
         compose.onNodeWithText("直裾素纱单衣").assertExists()
         compose.onNodeWithText("问阿帛 · 本章").performScrollTo().performClick()

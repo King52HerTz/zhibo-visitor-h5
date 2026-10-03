@@ -26,10 +26,11 @@ class LiveMuseumServiceTest {
             SqliteProgressStore(context, database).use { store ->
                 store.complete(key, "clothes-light-v1")
                 store.complete(key, "clothes-pattern-v1")
+                storyTaskIds.forEach { store.complete(key, it) }
             }
             SqliteProgressStore(context, database).use { store ->
                 val local = store.load(key)
-                assertEquals(2, local.pending.size)
+                assertEquals(5, local.pending.size)
                 val responses = coroutineScope {
                     List(4) { async { api.syncProgress(a, Audience.CHILD, local.completed) } }.awaitAll()
                 }
@@ -38,9 +39,10 @@ class LiveMuseumServiceTest {
                 assertEquals(local.completed, api.syncProgress(a, Audience.CHILD, emptySet()))
                 assertTrue(api.syncProgress(a, Audience.ADULT, emptySet()).isEmpty())
                 assertTrue(api.syncProgress(b, Audience.CHILD, emptySet()).isEmpty())
+                assertEquals(511, storyMaskFromTasks(api.syncProgress(a, Audience.CHILD, emptySet())))
             }
             SqliteProgressStore(context, database).use { store ->
-                assertEquals(2, store.load(key).completed.size)
+                assertEquals(5, store.load(key).completed.size)
                 assertTrue(store.load(key).pending.isEmpty())
             }
         } finally {
