@@ -58,16 +58,16 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
     }
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-        val compact = maxHeight < 360.dp
+        val compact = maxHeight < 360.dp || maxWidth < 260.dp * LocalDensity.current.fontScale
         val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         Column(Modifier.widthIn(max = 760.dp).fillMaxSize().align(Alignment.TopCenter)) {
             if (compact) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(Space.small), verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Space.small), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (child) "问阿帛" else "文物讲解", style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.semantics { heading() })
+                        modifier = Modifier.align(Alignment.CenterVertically).semantics { heading() })
                     Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        modifier = Modifier.weight(1f).align(Alignment.CenterVertically), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!keyboardOpen) {
                         if (onMode != null) TextButton(onClick = onMode, enabled = !state.chatBusy) { Text("切换模式") }
                         TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
@@ -210,7 +210,8 @@ private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, o
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f), enabled = !state.chatBusy,
                     label = if (compact) null else ({ Text(if (child) "想问阿帛什么？" else "想了解什么？") }),
-                    placeholder = { Text(if (child) "想问阿帛什么？" else "想了解什么？") }, maxLines = if (compact) 1 else 4,
+                    placeholder = { Text(if (child) "想问阿帛什么？" else "想了解什么？",
+                        maxLines = 1, overflow = TextOverflow.Ellipsis) }, maxLines = if (compact) 1 else 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
                     shape = MaterialTheme.shapes.large, textStyle = MaterialTheme.typography.bodyMedium,
