@@ -58,11 +58,11 @@ class SqliteProgressStore(context: Context, name: String = "museum_progress.db")
         }
     }
     override suspend fun complete(key: ProgressKey, taskId: String) = change(key) { db ->
-        require(FirstChapter.tasks.any { it.id == taskId })
+        require(taskId in mobileTaskIds && (key.audience == Audience.CHILD || taskId !in storyTaskIds))
         db.execSQL("INSERT OR IGNORE INTO tasks VALUES(?,?,?,?,1)", args(key) + taskId)
     }
     override suspend fun merge(key: ProgressKey, remote: Set<String>) = change(key) { db ->
-        remote.filter { id -> FirstChapter.tasks.any { it.id == id } }.forEach { id ->
+        remote.filter { id -> id in mobileTaskIds && (key.audience == Audience.CHILD || id !in storyTaskIds) }.forEach { id ->
             db.execSQL("INSERT OR IGNORE INTO tasks VALUES(?,?,?,?,0)", args(key) + id)
             db.execSQL("UPDATE tasks SET pending=0 WHERE endpoint=? AND username=? AND audience=? AND task_id=?", args(key) + id)
         }
@@ -91,7 +91,8 @@ class ProgressController(private val api: MuseumProgressApi, private val store: 
     fun complete(taskId: String) {
         val target = key ?: return
         val ticket = epoch
-        if (mutable.value.loading || taskId in mutable.value.progress.completed || FirstChapter.tasks.none { it.id == taskId }) return
+        if (mutable.value.loading || taskId in mutable.value.progress.completed || taskId !in mobileTaskIds ||
+            (target.audience != Audience.CHILD && taskId in storyTaskIds)) return
         scope.launch {
             try {
                 val saved = store.complete(target, taskId)

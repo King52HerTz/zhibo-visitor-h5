@@ -88,4 +88,22 @@ class ProgressControllerTest {
         assertEquals(setOf(light), controller.state.value.progress.completed)
         assertTrue(controller.state.value.progress.pending.isEmpty())
     }
+
+    @Test fun storyTasksSyncSeparatelyAndCannotCompleteInAdultMode() = runTest {
+        val api = ProgressService().apply { offline = true }
+        val store = MemoryProgressStore()
+        val controller = ProgressController(api, store, backgroundScope)
+        controller.bind(a, Audience.CHILD); runCurrent()
+        storyTaskIds.forEach { controller.complete(it); runCurrent() }
+        assertEquals(storyTaskIds.toSet(), controller.state.value.progress.completed)
+        assertEquals(storyTaskIds.toSet(), controller.state.value.progress.pending)
+        controller.bind(a, Audience.ADULT); runCurrent()
+        controller.complete(storyTaskIds[0]); runCurrent()
+        assertTrue(controller.state.value.progress.completed.isEmpty())
+        api.offline = false
+        controller.bind(a, Audience.CHILD); runCurrent()
+        assertEquals(storyTaskIds.toSet(), api.records["aCHILD"])
+        assertTrue(controller.state.value.progress.pending.isEmpty())
+        assertFalse(light in controller.state.value.progress.completed)
+    }
 }
