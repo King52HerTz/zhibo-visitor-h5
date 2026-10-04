@@ -25,7 +25,7 @@ internal fun LocalObservationPanel(audience: Audience, controller: LocalObservat
             controller::requestCancelDraft, { LocalJournalPhoto(state.photo) })
     } else {
         LocalObservationList(audience, state.records, state.loading || state.busy, state.message,
-            controller::newRecord, controller::delete, { LocalJournalPhoto(controller.photo(it)) })
+            { controller.newRecord() }, controller::delete, { LocalJournalPhoto(controller.photo(it)) })
     }
     if (state.confirmDiscard) AlertDialog(onDismissRequest = controller::keepDraft,
         title = { Text("放下这次观察？") },
@@ -34,6 +34,13 @@ internal fun LocalObservationPanel(audience: Audience, controller: LocalObservat
             modifier = Modifier.heightIn(min = Space.touch)) { Text("放下草稿") } },
         dismissButton = { TextButton(onClick = controller::keepDraft,
             modifier = Modifier.heightIn(min = Space.touch)) { Text("继续记录") } })
+    if (state.pendingRelicId != null) AlertDialog(onDismissRequest = controller::keepRelic,
+        title = { Text("更换观察的文物？") },
+        text = { Text("更换后，这次尚未保存的照片会移除，文字会保留。确定观察“${FirstChapter.relics.first { it.id == state.pendingRelicId }.title}”吗？") },
+        confirmButton = { TextButton(onClick = controller::confirmRelicChange,
+            modifier = Modifier.heightIn(min = Space.touch)) { Text("更换并移除照片") } },
+        dismissButton = { TextButton(onClick = controller::keepRelic,
+            modifier = Modifier.heightIn(min = Space.touch)) { Text("保留原文物") } })
 }
 
 @Composable

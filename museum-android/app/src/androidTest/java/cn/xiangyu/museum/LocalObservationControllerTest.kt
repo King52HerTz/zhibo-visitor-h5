@@ -249,7 +249,7 @@ class LocalObservationControllerTest {
         main { controller.newRecord(); controller.note("第一张草稿") }
         val old = startCapture(controller)
         jpeg(requireNotNull(camera.file(old)))
-        main { controller.newRecord(); controller.note("新的草稿") }
+        main { controller.cancelDraft(); controller.newRecord(); controller.note("新的草稿") }
         val current = startCapture(controller)
         jpeg(requireNotNull(camera.file(current)))
         main { controller.cameraResult(old.id, true) }
@@ -295,6 +295,252 @@ class LocalObservationControllerTest {
                 fail("Provider must reject files outside journal-capture")
             } catch (_: IllegalArgumentException) { }
         }
+    }
+
+    @Test fun specifiedRelicEntryDoesNotOverwriteAnExistingDraft() = runBlocking {
+        val controller = controller()
+        val first = FirstChapter.relics.first().id
+        val second = FirstChapter.relics.last().id
+        main { controller.newRecord("TEST_UNKNOWN_RELIC") }
+        assertFalse(controller.state.value.editing)
+        main { controller.newRecord(second); controller.note("我看到花叶纹样。") }
+        val original = controller.state.value
+        assertEquals(second, original.relicId)
+        assertTrue(controller.hasUnsavedDraft())
+        main { controller.newRecord(second) }
+        assertEquals(original, controller.state.value)
+        main { controller.newRecord(first) }
+        assertEquals(original.draftId, controller.state.value.draftId)
+        assertEquals(second, controller.state.value.relicId)
+        assertEquals(original.note, controller.state.value.note)
+        assertNotNull(controller.state.value.message)
+        main { controller.newRecord("TEST_UNKNOWN_RELIC") }
+        assertEquals(original.draftId, controller.state.value.draftId)
+        assertTrue(store.load(key).isEmpty())
+        main { controller.cancelDraft(); controller.newRecord(first) }
+        assertEquals(first, controller.state.value.relicId)
+        assertNotEquals(original.draftId, controller.state.value.draftId)
+        assertEquals("", controller.state.value.note)
+        assertFalse(controller.hasUnsavedDraft())
+        assertNull(controller.state.value.pendingRelicId)
+    }
+
+    @Test fun changingAPhotoRelicNeedsConfirmationAndPreservesTextAndTaskProgress() = runBlocking {
+        val taskDatabase = "test-camera-tasks-${UUID.randomUUID()}.db"
+        val tasks = SqliteProgressStore(context, taskDatabase)
+        try {
+            val previousTasks = tasks.complete(key, FirstChapter.tasks.first().id)
+            val controller = controller()
+            val first = FirstChapter.relics.first().id
+            val second = FirstChapter.relics.last().id
+            main { controller.newRecord(first); controller.note("照片和文字来自这次观察。") }
+            val capture = startCapture(controller)
+            val capturedFile = requireNotNull(camera.file(capture))
+            jpeg(capturedFile)
+            main { controller.cameraResult(capture.id, true) }
+            settle()
+            main { controller.note("") }
+            assertTrue(controller.hasUnsavedDraft())
+            main { controller.note(capture.note) }
+            main { controller.relic(first) }
+            assertNull(controller.state.value.pendingRelicId)
+            main { controller.relic("TEST_UNKNOWN_RELIC") }
+            assertEquals(first, controller.state.value.relicId)
+            main { controller.relic(second) }
+            assertEquals(first, controller.state.value.relicId)
+            assertEquals(second, controller.state.value.pendingRelicId)
+            assertEquals(capturedFile, controller.state.value.photo)
+            assertTrue(capturedFile.isFile)
+            assertEquals(capture.id, camera.pending()?.id)
+            main { controller.keepRelic() }
+            assertNull(controller.state.value.pendingRelicId)
+            assertEquals(first, controller.state.value.relicId)
+            assertEquals(capture.note, controller.state.value.note)
+            assertEquals(capturedFile, controller.state.value.photo)
+            assertTrue(capturedFile.isFile)
+            main { controller.newRecord(second) }
+            assertEquals(capture.draftId, controller.state.value.draftId)
+            assertEquals(first, controller.state.value.relicId)
+            assertEquals(capturedFile, controller.state.value.photo)
+            main { controller.relic(second); controller.confirmRelicChange() }
+            assertNull(controller.state.value.pendingRelicId)
+            assertEquals(second, controller.state.value.relicId)
+            assertEquals(capture.note, controller.state.value.note)
+            assertNull(controller.state.value.photo)
+            assertNull(camera.pending())
+            assertFalse(capturedFile.exists())
+            assertTrue(controller.hasUnsavedDraft())
+            main {
+                controller.save()
+                assertTrue(controller.state.value.busy)
+                controller.relic(first)
+                controller.newRecord(first)
+                controller.confirmRelicChange()
+                assertEquals(second, controller.state.value.relicId)
+            }
+            await { !controller.state.value.busy && !controller.state.value.editing }
+            val saved = store.load(key).single()
+            assertEquals(second, saved.relicId)
+            assertEquals(capture.note, saved.note)
+            assertNull(saved.photoName)
+            assertFalse(controller.hasUnsavedDraft())
+            assertEquals(previousTasks, tasks.load(key))
+        } finally {
+            tasks.close()
+            context.deleteDatabase(taskDatabase)
+        }
+    }
+
+    @Test fun changingRelicWithAWaitingCaptureRequiresConfirmationAndRejectsItsLateResult() = runBlocking {
+        val controller = controller()
+        val first = FirstChapter.relics.first().id
+        val second = FirstChapter.relics.last().id
+        main { controller.newRecord(first) }
+        assertFalse(controller.hasUnsavedDraft())
+        val capture = startCapture(controller)
+        val capturedFile = requireNotNull(camera.file(capture))
+        assertTrue(controller.hasUnsavedDraft())
+        main { controller.relic(second) }
+        assertEquals(first, controller.state.value.relicId)
+        assertEquals(second, controller.state.value.pendingRelicId)
+        assertEquals(capture, camera.pending())
+        assertTrue(capturedFile.isFile)
+        main { controller.keepRelic() }
+        assertNull(controller.state.value.pendingRelicId)
+        assertEquals(capture, camera.pending())
+        main { controller.relic(second); controller.confirmRelicChange() }
+        assertEquals(second, controller.state.value.relicId)
+        assertNull(camera.pending())
+        assertFalse(capturedFile.exists())
+        assertFalse(controller.hasUnsavedDraft())
+        main { controller.cameraResult(capture.id, true) }
+        settle()
+        assertEquals(second, controller.state.value.relicId)
+        assertNull(controller.state.value.photo)
+        assertNull(controller.state.value.pendingRelicId)
+        assertTrue(store.load(key).isEmpty())
+    }
+
+    @Test fun discardGuardUsesCurrentDraftContentAndClearsConfirmationsOnCancelAndUnbind() = runBlocking {
+        val controller = controller()
+        main { controller.newRecord(); controller.note("   ") }
+        assertFalse(controller.hasUnsavedDraft())
+        main { controller.requestCancelDraft() }
+        assertFalse(controller.state.value.editing)
+        assertFalse(controller.state.value.confirmDiscard)
+
+        main { controller.newRecord() }
+        val unrelated = camera.begin(key, UUID.randomUUID().toString(), FirstChapter.relics.first().id, "测试无关票据")
+        val unrelatedFile = requireNotNull(camera.file(unrelated)).also { ownedFiles += it }
+        assertFalse(controller.hasUnsavedDraft())
+        main { controller.requestCancelDraft() }
+        assertFalse(controller.state.value.editing)
+        assertFalse(controller.state.value.confirmDiscard)
+        assertNull(camera.pending())
+        assertFalse(unrelatedFile.exists())
+
+        main { controller.newRecord() }
+        val cancelled = startCapture(controller)
+        assertTrue(controller.hasUnsavedDraft())
+        main { controller.cameraResult(cancelled.id, false) }
+        settle()
+        assertEquals("cancelled", camera.pending()?.result)
+        assertFalse(controller.hasUnsavedDraft())
+        main { controller.relic(FirstChapter.relics.last().id) }
+        assertEquals(FirstChapter.relics.last().id, controller.state.value.relicId)
+        assertNull(controller.state.value.pendingRelicId)
+        assertNull(camera.pending())
+        main { controller.requestCancelDraft() }
+        assertFalse(controller.state.value.editing)
+        assertFalse(controller.state.value.confirmDiscard)
+        assertNull(camera.pending())
+
+        main { controller.newRecord(); controller.note("这次观察还没有收好。") }
+        val capture = startCapture(controller)
+        main { controller.relic(FirstChapter.relics.last().id); controller.requestCancelDraft() }
+        assertTrue(controller.state.value.confirmDiscard)
+        assertNull(controller.state.value.pendingRelicId)
+        assertTrue(controller.hasUnsavedDraft())
+        main { controller.keepDraft() }
+        assertFalse(controller.state.value.confirmDiscard)
+        assertEquals(capture.draftId, controller.state.value.draftId)
+        assertEquals(capture.note, controller.state.value.note)
+        main { controller.relic(FirstChapter.relics.last().id) }
+        assertNotNull(controller.state.value.pendingRelicId)
+        main { controller.cancelDraft() }
+        assertFalse(controller.hasUnsavedDraft())
+        assertNull(controller.state.value.pendingRelicId)
+        assertNull(camera.pending())
+        main { controller.newRecord(); controller.note("切换身份前的观察。") }
+        val beforeUnbind = startCapture(controller)
+        main { controller.relic(FirstChapter.relics.last().id); controller.bind(null) }
+        assertFalse(controller.hasUnsavedDraft())
+        assertFalse(controller.state.value.editing)
+        assertNull(controller.state.value.pendingRelicId)
+        assertFalse(controller.state.value.confirmDiscard)
+        assertNull(camera.pending())
+        assertFalse(requireNotNull(camera.file(beforeUnbind)).exists())
+    }
+
+    @Test fun unboundCaptureGuardFindsOwnModeForWaitingAndReadableReadyPhotosWithoutChangingTickets() = runBlocking {
+        for (audience in Audience.entries) {
+            val identity = key.copy(audience = audience)
+            val capture = camera.begin(identity, UUID.randomUUID().toString(), FirstChapter.relics.first().id, "")
+            val photo = requireNotNull(camera.file(capture)).also { ownedFiles += it }
+            val controller = controller(bind = false)
+            main { controller.bind(null, restoring = true); controller.bind(null, waitingForMode = true) }
+            assertFalse(controller.state.value.editing)
+            assertFalse(controller.hasUnsavedDraft())
+            assertEquals(audience, controller.pendingDraftAudience(key.endpoint, key.username))
+            assertNull(controller.pendingDraftAudience(key.endpoint, "TEST_OTHER_CAPTURE_ACCOUNT"))
+            assertNull(controller.pendingDraftAudience("https://other.example.invalid", key.username))
+            assertEquals(capture, camera.pending())
+            assertTrue(photo.isFile)
+
+            jpeg(photo)
+            main { controller.cameraResult(capture.id, true) }
+            settle()
+            val ready = requireNotNull(camera.pending())
+            assertEquals("ready", ready.result)
+            main { controller.bind(null, waitingForMode = true) }
+            assertFalse(controller.state.value.editing)
+            assertEquals(audience, controller.pendingDraftAudience(key.endpoint, key.username))
+            assertNull(controller.pendingDraftAudience(key.endpoint, "TEST_OTHER_CAPTURE_ACCOUNT"))
+            assertNull(controller.pendingDraftAudience("https://other.example.invalid", key.username))
+            assertEquals(ready, camera.pending())
+            assertTrue(photo.isFile)
+            photo.writeText("TEST_ONLY_UNREADABLE_CAPTURE")
+            assertNull(controller.pendingDraftAudience(key.endpoint, key.username))
+            assertEquals(ready, camera.pending())
+            assertTrue(photo.isFile)
+            jpeg(photo)
+            assertEquals(audience, controller.pendingDraftAudience(key.endpoint, key.username))
+            camera.discard(capture.id)
+        }
+    }
+
+    @Test fun unboundCancelledCaptureOnlyProtectsNonBlankTextWithinItsOwnAccountAndAddress() = runBlocking {
+        val identity = key.copy(audience = Audience.ADULT)
+        val controller = controller(bind = false)
+        for (note in listOf("", "   ", "拍照取消后，这段文字还没有收好。")) {
+            val capture = camera.begin(identity, UUID.randomUUID().toString(), FirstChapter.relics.last().id, note)
+            val photo = requireNotNull(camera.file(capture)).also { ownedFiles += it }
+            main { controller.cameraResult(capture.id, false) }
+            settle()
+            main { controller.bind(null, waitingForMode = true) }
+            val cancelled = requireNotNull(camera.pending())
+            assertEquals("cancelled", cancelled.result)
+            assertFalse(photo.exists())
+            assertFalse(controller.state.value.editing)
+            assertFalse(controller.hasUnsavedDraft())
+            assertEquals(if (note.isBlank()) null else Audience.ADULT,
+                controller.pendingDraftAudience(key.endpoint, key.username))
+            assertNull(controller.pendingDraftAudience(key.endpoint, "TEST_OTHER_CAPTURE_ACCOUNT"))
+            assertNull(controller.pendingDraftAudience("https://other.example.invalid", key.username))
+            assertEquals(cancelled, camera.pending())
+            camera.discard(capture.id)
+        }
+        assertNull(controller.pendingDraftAudience(key.endpoint, key.username))
     }
 
     @Test fun previewSamplingBoundsMemoryAndAppliesExifRotationAndMirror() {

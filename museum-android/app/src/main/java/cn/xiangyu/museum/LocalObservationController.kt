@@ -12,7 +12,8 @@ import java.util.UUID
 data class LocalObservationState(val records: List<LocalObservation> = emptyList(), val loading: Boolean = false,
     val busy: Boolean = false, val editing: Boolean = false, val draftId: String = "",
     val relicId: String = FirstChapter.relics.first().id, val note: String = "",
-    val photo: File? = null, val message: String? = null, val confirmDiscard: Boolean = false)
+    val photo: File? = null, val message: String? = null, val confirmDiscard: Boolean = false,
+    val pendingRelicId: String? = null)
 
 class LocalObservationController internal constructor(private val context: Context,
     private val store: SqliteLocalObservationStore, private val scope: CoroutineScope,
@@ -64,11 +65,16 @@ class LocalObservationController internal constructor(private val context: Conte
             })
     }
 
-    fun newRecord() {
-        if (key == null || state.value.busy) return
+    fun newRecord(relicId: String = FirstChapter.relics.first().id) {
+        if (key == null || state.value.busy || relicId !in FirstChapter.relics.map { it.id }) return
+        if (state.value.editing) {
+            if (relicId != state.value.relicId) mutable.value = state.value.copy(
+                message = "你还有一条没收进手帐的观察。先收好或放下，再记录另一件文物。")
+            return
+        }
         camera.pending()?.let { camera.discard(it.id) }
         mutable.value = state.value.copy(editing = true, draftId = UUID.randomUUID().toString(),
-            relicId = FirstChapter.relics.first().id, note = "", photo = null, message = null)
+            relicId = relicId, note = "", photo = null, message = null, confirmDiscard = false, pendingRelicId = null)
     }
 
     fun note(value: String) {
@@ -77,26 +83,59 @@ class LocalObservationController internal constructor(private val context: Conte
 
     fun relic(id: String) {
         if (!state.value.editing || state.value.busy || id == state.value.relicId || id !in FirstChapter.relics.map { it.id }) return
-        withoutPhoto()
-        mutable.value = state.value.copy(relicId = id, message = null)
+        if (state.value.photo != null || hasPendingCapture(state.value)) mutable.value = state.value.copy(pendingRelicId = id)
+        else {
+            camera.pending()?.let { camera.discard(it.id) }
+            mutable.value = state.value.copy(relicId = id, message = null, pendingRelicId = null)
+        }
     }
+
+    fun confirmRelicChange() {
+        val draft = state.value
+        val id = draft.pendingRelicId ?: return
+        if (!draft.editing || draft.busy) return
+        camera.pending()?.let { camera.discard(it.id) }
+        mutable.value = state.value.copy(relicId = id, photo = null, message = null, pendingRelicId = null)
+    }
+
+    fun keepRelic() {
+        if (!state.value.busy) mutable.value = state.value.copy(pendingRelicId = null)
+    }
+
+    fun hasUnsavedDraft(): Boolean {
+        val draft = state.value
+        return draft.editing && (draft.note.isNotBlank() || draft.photo != null || hasPendingCapture(draft))
+    }
+
+    fun pendingDraftAudience(endpoint: String, username: String): Audience? {
+        val capture = camera.pending() ?: return null
+        val audience = Audience.entries.firstOrNull {
+            capture.scope == localObservationScope(ProgressKey(endpoint, username, it))
+        } ?: return null
+        return audience.takeIf { capture.note.isNotBlank() || capture.result == "waiting" ||
+            (capture.result == "ready" && camera.file(capture)?.let { journalPhotoReadable(it) } == true) }
+    }
+
+    private fun hasPendingCapture(draft: LocalObservationState) = camera.pending()?.let {
+        it.draftId == draft.draftId && it.result == "waiting"
+    } == true
 
     fun withoutPhoto() {
         if (state.value.busy) return
         camera.pending()?.let { camera.discard(it.id) }
-        mutable.value = state.value.copy(photo = null, message = "读一读文物介绍，把自己的发现写下来。")
+        mutable.value = state.value.copy(photo = null, message = "读一读文物介绍，把自己的发现写下来。", pendingRelicId = null)
     }
 
     fun cancelDraft() {
         if (state.value.busy) return
         camera.pending()?.let { camera.discard(it.id) }
-        mutable.value = state.value.copy(editing = false, draftId = "", note = "", photo = null, message = null, confirmDiscard = false)
+        mutable.value = state.value.copy(editing = false, draftId = "", note = "", photo = null, message = null,
+            confirmDiscard = false, pendingRelicId = null)
     }
 
     fun requestCancelDraft() {
         if (state.value.busy) return
-        if (state.value.note.isNotBlank() || state.value.photo != null || camera.pending() != null)
-            mutable.value = state.value.copy(confirmDiscard = true)
+        if (hasUnsavedDraft()) mutable.value = state.value.copy(confirmDiscard = true, pendingRelicId = null)
         else cancelDraft()
     }
 
