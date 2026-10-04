@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -103,18 +101,19 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                 LazyColumn(state = list, modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.large)) {
                     if (state.messages.isEmpty()) {
-                        item { ChatWelcome(child, state.chatBusy || state.needsRefresh, onDraft) }
+                        item { ChatWelcome(child, compact, state.exhibitId, state.chatBusy || state.needsRefresh, onDraft) }
                         item {
                             Column(verticalArrangement = Arrangement.spacedBy(Space.small)) {
                                 Text("想聊哪件文物？", style = MaterialTheme.typography.titleSmall)
-                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.small),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     FilterChip(selected = state.exhibitId == null, onClick = { onExhibit(null) },
-                                        enabled = !state.chatBusy, label = { Text("主题问答") },
+                                        enabled = !state.chatBusy, label = { Text("主题问答") }, modifier = Modifier.heightIn(min = 48.dp),
                                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                             selectedLabelColor = MaterialTheme.colorScheme.primary))
                                     FirstChapter.relics.forEach { relic ->
                                         FilterChip(selected = state.exhibitId == relic.id, onClick = { onExhibit(relic.id) },
-                                            enabled = !state.chatBusy, label = { Text(relic.title) },
+                                            enabled = !state.chatBusy, label = { Text(relic.title) }, modifier = Modifier.heightIn(min = 48.dp),
                                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                                 selectedLabelColor = MaterialTheme.colorScheme.primary))
                                     }
@@ -177,10 +176,16 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
 }
 
 @Composable
-private fun ChatWelcome(child: Boolean, disabled: Boolean, onDraft: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(Space.medium)) {
+private fun ChatWelcome(child: Boolean, compact: Boolean, exhibitId: String?, disabled: Boolean, onDraft: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(if (compact) Space.small else Space.medium)) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
-            Row(Modifier.padding(Space.large), verticalAlignment = Alignment.CenterVertically) {
+            if (compact) Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                    Text(if (child) "你好，我是阿帛" else "从文物开始聊", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall)
+                    Image(painterResource(R.drawable.abo), null, Modifier.width(40.dp).height(56.dp))
+                }
+            } else Row(Modifier.padding(Space.large), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.small)) {
                     Text(if (child) "你好，我是阿帛" else "让文物讲述它的故事", style = MaterialTheme.typography.titleLarge)
                     Text(if (child) "带着好奇来问我吧。\n我们一起找找文物里的线索。" else "聊聊材料、工艺和历史背景。\n也可以从两件文物的比较开始。",
@@ -189,18 +194,30 @@ private fun ChatWelcome(child: Boolean, disabled: Boolean, onDraft: (String) -> 
                 Image(painterResource(R.drawable.abo), null, Modifier.width(88.dp).height(128.dp))
             }
         }
-        Text("从一个问题开始", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val prompts = listOf("比较两件衣服" to "这两件衣服的材料和工艺有什么不同？",
-            "纱衣为什么这么轻？" to "素纱单衣为什么这么轻？", "纹样里藏着什么？" to "这件绵袍的纹样有哪些特点？")
+        if (!compact) Text("从一个问题开始", style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val prompts = when (exhibitId) {
+            "silk-plain-straight" -> listOf("纱衣为什么这么轻？" to "直裾素纱单衣为什么这么轻？",
+                "衣领有什么特点？" to "直裾素纱单衣的衣领和衣襟有什么特点？",
+                "丝纱怎样织成？" to "直裾素纱单衣的丝纱是怎样织成的？")
+            "silk-painted-robe" -> listOf("纹样里藏着什么？" to "印花敷彩纱丝绵袍的纹样有哪些特点？",
+                "印花和敷彩怎么做？" to "印花敷彩纱丝绵袍上的印花和敷彩是怎样制作的？",
+                "先观察哪里？" to "观察印花敷彩纱丝绵袍时，可以先从哪些细节入手？")
+            else -> listOf("比较两件衣服" to "这两件衣服的材料和工艺有什么不同？",
+                "纱衣为什么这么轻？" to "素纱单衣为什么这么轻？", "纹样里藏着什么？" to "这件绵袍的纹样有哪些特点？")
+        }
         prompts.forEachIndexed { index, (label, question) ->
             Surface(onClick = { onDraft(question) }, enabled = !disabled, shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp,
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)), modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(horizontal = Space.medium, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
+                Row(Modifier.heightIn(min = Space.touch)
+                    .padding(horizontal = Space.medium, vertical = if (compact) Space.small else 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("0${index + 1}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    if (!compact) Text("0${index + 1}", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
                     Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    if (!compact) Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
