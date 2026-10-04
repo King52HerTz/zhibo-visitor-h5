@@ -58,6 +58,16 @@ internal class LocalJournalCamera(private val context: Context,
     fun uri(capture: JournalCapture): Uri = FileProvider.getUriForFile(context,
         "${context.packageName}.journal-camera", requireNotNull(file(capture)))
 
+    @Synchronized fun restore(): JournalCapture? {
+        val capture = pending() ?: return null
+        if (capture.result != "ready" || file(capture)?.let(::journalPhotoReadable) == true) return capture
+        val result = capture.copy(result = "unavailable")
+        write(result)
+        context.revokeUriPermission(uri(capture), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        file(capture)?.delete()
+        return result
+    }
+
     @Synchronized fun finish(id: String, success: Boolean): JournalCapture? {
         val capture = pending()?.takeIf { it.id == id && it.result == "waiting" } ?: return null
         context.revokeUriPermission(uri(capture), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)

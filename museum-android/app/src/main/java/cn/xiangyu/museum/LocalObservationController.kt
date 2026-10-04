@@ -37,7 +37,7 @@ class LocalObservationController internal constructor(private val context: Conte
             camera.discard(pending.id)
         }
         if (identity == null) return
-        restoreCapture(camera.pending())
+        restoreCapture(camera.restore())
         reading = scope.launch {
             try {
                 val records = store.load(identity)
@@ -60,6 +60,7 @@ class LocalObservationController internal constructor(private val context: Conte
             note = capture.note, photo = if (capture.result == "ready") camera.file(capture) else null,
             message = when (capture.result) {
                 "ready" -> "照片只在本机。看一看，再确认收进手帐。"
+                "unavailable" -> "照片暂存已不可用，观察文字还在。可以重新拍照，或直接收进手帐。"
                 "waiting" -> "拍照尚未返回。也可以只写观察，稍后再拍。"
                 else -> "没有保存照片，仍然可以写下观察。"
             })

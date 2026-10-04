@@ -222,6 +222,48 @@ class LocalObservationControllerTest {
         assertTrue(store.load(key).isEmpty())
     }
 
+    @Test fun missingOrDamagedReadyPhotosRecoverAsExplicitTextOnlyDrafts() = runBlocking {
+        for (damaged in listOf(false, true)) {
+            val original = controller()
+            main { original.newRecord(); original.note("测试观察：照片失效时保留这点发现。") }
+            val capture = startCapture(original)
+            val file = requireNotNull(camera.file(capture))
+            jpeg(file)
+            main { original.cameraResult(capture.id, true) }
+            settle()
+            assertEquals("ready", camera.pending()?.result)
+            jobs.last().cancelAndJoin()
+            if (damaged) file.writeText("TEST_ONLY_DAMAGED_PHOTO") else assertTrue(file.delete())
+
+            val restored = controller(ticketCamera = LocalJournalCamera(context, preferencesName))
+            assertTrue(restored.state.value.editing)
+            assertEquals(capture.draftId, restored.state.value.draftId)
+            assertEquals(capture.relicId, restored.state.value.relicId)
+            assertEquals(capture.note, restored.state.value.note)
+            assertNull("An unavailable cache photo must not be offered for saving", restored.state.value.photo)
+            assertEquals(capture.copy(result = "unavailable"), camera.pending())
+            assertFalse(file.exists())
+            assertEquals("照片暂存已不可用，观察文字还在。可以重新拍照，或直接收进手帐。", restored.state.value.message)
+            assertTrue(store.load(key).none { it.id == capture.draftId })
+            assertTrue(restored.hasUnsavedDraft())
+            jobs.last().cancelAndJoin()
+            val reopened = controller(ticketCamera = LocalJournalCamera(context, preferencesName))
+            assertEquals(capture.note, reopened.state.value.note)
+            assertNull(reopened.state.value.photo)
+            assertEquals(restored.state.value.message, reopened.state.value.message)
+            main { reopened.cameraResult(capture.id, true) }
+            settle()
+            assertNull(reopened.state.value.photo)
+            assertEquals(capture.copy(result = "unavailable"), camera.pending())
+            main { reopened.save() }
+            await { !reopened.state.value.busy && !reopened.state.value.editing }
+            val saved = store.load(key).single { it.id == capture.draftId }
+            assertEquals(capture.note, saved.note)
+            assertNull(saved.photoName)
+            assertNull(camera.pending())
+        }
+    }
+
     @Test fun lateResultsCannotCrossIdentityBoundariesOrReplaceANewerDraftCapture() = runBlocking {
         val controller = controller()
         val others = listOf(key.copy(username = "TEST_CAMERA_OTHER"), key.copy(audience = Audience.ADULT),
