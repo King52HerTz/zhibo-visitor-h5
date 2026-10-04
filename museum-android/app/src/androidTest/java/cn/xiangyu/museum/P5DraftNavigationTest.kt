@@ -326,6 +326,50 @@ class P5DraftNavigationTest {
         screenshot("p5-photo-relic-changed", "记录一次观察")
     }
 
+    @Test fun unavailableReadyPhotoRestoresAReadableDraftAndOnlySavesAfterConfirmation() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val camera = LocalJournalCamera(context)
+        val capture = camera.begin(key(Audience.CHILD), UUID.randomUUID().toString(), FirstChapter.relics.first().id, draftText)
+        val photo = requireNotNull(camera.file(capture))
+        val bitmap = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+        try {
+            photo.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it)) }
+        } finally { bitmap.recycle() }
+        assertEquals("ready", camera.finish(capture.id, true)?.result)
+        assertTrue(photo.delete())
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("儿童模式").performScrollTo().performClick()
+        compose.waitUntil(5000) { model().observations.state.value.editing && !model().observations.state.value.loading &&
+            !model().progress.state.value.loading }
+        tab("我的手帐").assertIsSelected()
+        assertEquals(capture.draftId, model().observations.state.value.draftId)
+        assertNull(model().observations.state.value.photo)
+        assertEquals(capture.copy(result = "unavailable"), camera.pending())
+        assertTrue(savedRecords(Audience.CHILD).isEmpty())
+        compose.onNode(hasSetTextAction() and hasText("我的发现")).assertTextContains(draftText)
+        compose.onNodeWithContentDescription("这条观察的本机照片").assertDoesNotExist()
+        val progress = model().progress.state.value.progress
+        val notice = "照片暂存已不可用，观察文字还在。可以重新拍照，或直接收进手帐。"
+        compose.onNodeWithText(notice).performScrollTo().assertIsDisplayed()
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(notice).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> assertTrue(action(layouts)) }
+        val layout = layouts.single()
+        assertEquals(notice, layout.layoutInput.text.text)
+        assertFalse(layout.hasVisualOverflow)
+        screenshot("p5-unavailable-photo-restored", notice)
+        compose.onNodeWithText("确认收进手帐").performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(5000) { !model().observations.state.value.editing && !model().observations.state.value.busy }
+        val saved = savedRecords(Audience.CHILD).single()
+        assertEquals(capture.draftId, saved.id)
+        assertEquals(draftText, saved.note)
+        assertNull(saved.photoName)
+        assertNull(camera.pending())
+        assertTrue(savedRecords(Audience.ADULT).isEmpty())
+        assertEquals(progress, model().progress.state.value.progress)
+        compose.onNodeWithText(draftText).performScrollTo().assertIsDisplayed()
+        screenshot("p5-unavailable-photo-saved", draftText)
+    }
+
     @Test fun waitingModePhotoDraftRequiresExplicitDiscardAndMatchingModeRestoresIt() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val camera = LocalJournalCamera(context)
