@@ -24,6 +24,7 @@ fun MuseumTheme(content: @Composable () -> Unit) {
             tertiary = Color(0xFFA33E37),
             background = Color(0xFFFFF9EF), onBackground = Color(0xFF193E40),
             surface = Color(0xFFFFF9EF), onSurface = Color(0xFF193E40),
+            surfaceContainerHigh = Color(0xFFFFF9EF),
             surfaceVariant = Color(0xFFE4EED7), onSurfaceVariant = Color(0xFF365D4B)
         ),
         typography = Typography(

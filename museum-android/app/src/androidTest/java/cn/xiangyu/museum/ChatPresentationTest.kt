@@ -59,6 +59,8 @@ class ChatPresentationTest {
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed()
         screenshot("chat-long-history.png")
         compose.onNodeWithText("历史会话").performClick()
+        compose.onNodeWithText(second.title).assertIsDisplayed()
+        screenshot("p6-chat-history-dialog-${InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.fontScale}.png")
         compose.onNodeWithText(second.title).performClick()
         assertEquals(second, selected)
         compose.onNodeWithText("历史会话").performClick()
