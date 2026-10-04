@@ -178,6 +178,14 @@ class MuseumNavigationTest {
         compose.onNodeWithText("跳过引入").performClick()
         compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
+        val prompt = compose.onNodeWithText("比较两件衣服", useUnmergedTree = true).assertIsDisplayed()
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        prompt.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { action ->
+            org.junit.Assert.assertTrue(action(layouts))
+        }
+        org.junit.Assert.assertFalse("第一个示例问题不能溢出", layouts.single().hasVisualOverflow)
+        org.junit.Assert.assertTrue("第一个示例问题应完整出现在消息视口内",
+            layouts.single().size.height <= prompt.fetchSemanticsNode().boundsInRoot.height + 1f)
         screenshot("chat-main-empty.png")
         compose.onNode(hasSetTextAction()).performClick().performTextInput("这件衣服有什么线索？")
         compose.waitUntil(5000) {
