@@ -13,28 +13,37 @@ class MemoryVault(var value: LoginSession? = null) : TokenVault {
 }
 
 class FakeMuseumApi : MuseumApi {
+    val calls = mutableListOf<String>()
     val histories = mutableMapOf<String, List<ChatLine>>()
     val owned = mutableMapOf<String, MutableList<ChatSessionInfo>>()
     var fail: ApiFailure? = null
     var hold = false
     var lateEvent: ((ChatEvent) -> Unit)? = null
     var sends = 0
-    override suspend fun authenticate(endpoint: String, username: String, password: String, register: Boolean) =
-        LoginSession(username, "TEST_ONLY_TOKEN", endpoint)
+    override suspend fun authenticate(endpoint: String, username: String, password: String, register: Boolean): LoginSession {
+        calls += "authenticate"
+        return LoginSession(username, "TEST_ONLY_TOKEN", endpoint)
+    }
     override suspend fun sessions(login: LoginSession, audience: Audience): List<ChatSessionInfo> {
+        calls += "sessions-${audience.name}"
         fail?.let { throw it }
         return owned["${login.username}-${audience.name}"].orEmpty()
     }
     override suspend fun createSession(login: LoginSession, audience: Audience, exhibitId: String?): ChatSessionInfo {
+        calls += "createSession"
         val key = "${login.username}-${audience.name}"
         val session = ChatSessionInfo("session-${owned.values.sumOf { it.size }}", "测试对话", exhibitId)
         owned.getOrPut(key) { mutableListOf() }.add(0, session)
         return session
     }
-    override suspend fun messages(login: LoginSession, audience: Audience, session: ChatSessionInfo) = histories[session.id].orEmpty()
+    override suspend fun messages(login: LoginSession, audience: Audience, session: ChatSessionInfo): List<ChatLine> {
+        calls += "messages"
+        return histories[session.id].orEmpty()
+    }
     override suspend fun stream(login: LoginSession, audience: Audience, session: ChatSessionInfo,
                                  message: String, onEvent: (ChatEvent) -> Unit) {
         sends++
+        calls += "stream"
         lateEvent = onEvent
         onEvent(ChatEvent.Content("部分"))
         if (hold) awaitCancellation()
@@ -47,6 +56,52 @@ class FakeMuseumApi : MuseumApi {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MuseumControllerTest {
+    @Test fun coldRestoreReadsTheLocalVaultWithoutCallingApiBeforeModeSelection() = runTest {
+        val saved = LoginSession("TEST_OFFLINE_RESTORE", "TEST_ONLY_TOKEN", "https://example.invalid")
+        val vault = MemoryVault(saved)
+        val api = FakeMuseumApi().apply { fail = ApiFailure(message = "测试连接失败") }
+        val controller = MuseumController(api, vault, backgroundScope, false)
+        runCurrent()
+        assertFalse(controller.state.value.restoring)
+        assertEquals(saved.username, controller.state.value.username)
+        assertEquals(saved.endpoint, controller.state.value.endpoint)
+        assertNull(controller.state.value.audience)
+        assertTrue(controller.state.value.messages.isEmpty())
+        assertFalse(controller.state.value.chatBusy)
+        assertTrue(api.calls.isEmpty())
+        assertEquals(saved, vault.value)
+    }
+
+    @Test fun ordinarySessionConnectionFailureKeepsIdentityAndModeWithoutReusingPriorConversation() = runTest {
+        val saved = LoginSession("TEST_OFFLINE_MODE", "TEST_ONLY_TOKEN", "https://example.invalid")
+        val vault = MemoryVault(saved)
+        val api = FakeMuseumApi()
+        val controller = MuseumController(api, vault, backgroundScope, false)
+        runCurrent()
+        controller.selectAudience(Audience.CHILD); runCurrent()
+        controller.draft("原儿童对话"); controller.send(); runCurrent()
+        assertTrue(controller.state.value.messages.isNotEmpty())
+        api.fail = ApiFailure(message = "测试连接失败")
+        controller.selectAudience(Audience.ADULT); runCurrent()
+        assertEquals(saved.username, controller.state.value.username)
+        assertEquals(saved.endpoint, controller.state.value.endpoint)
+        assertEquals(Audience.ADULT, controller.state.value.audience)
+        assertEquals(saved, vault.value)
+        assertTrue(controller.state.value.messages.isEmpty())
+        assertTrue(controller.state.value.sessions.isEmpty())
+        assertNull(controller.state.value.session)
+        assertEquals("", controller.state.value.draft)
+        assertEquals("测试连接失败", controller.state.value.error)
+        assertFalse(controller.state.value.chatBusy)
+        controller.selectAudience(Audience.CHILD); runCurrent()
+        assertEquals(Audience.CHILD, controller.state.value.audience)
+        assertEquals(saved.username, controller.state.value.username)
+        assertEquals(saved, vault.value)
+        assertTrue(controller.state.value.messages.isEmpty())
+        assertEquals(1, api.sends)
+        assertEquals(listOf("sessions-ADULT", "sessions-CHILD"), api.calls.takeLast(2))
+    }
+
     @Test fun logoutFinishesCredentialRemovalBeforeAllowingNextLogin() = runTest {
         val cleared = CompletableDeferred<Unit>()
         val vault = object : TokenVault {
