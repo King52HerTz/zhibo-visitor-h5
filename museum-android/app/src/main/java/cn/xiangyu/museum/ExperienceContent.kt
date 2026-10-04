@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
@@ -60,7 +62,7 @@ private fun StoryboardInvitation(onReady: () -> Unit) {
 }
 
 @Composable
-internal fun AdultRelics(onAsk: (Relic) -> Unit) {
+internal fun AdultRelics(onAsk: (Relic) -> Unit, onObserve: (Relic) -> Unit, observationEnabled: Boolean = true) {
     Text("文物档案", style = MaterialTheme.typography.headlineLarge)
     FirstChapter.relics.forEach { relic ->
         Card(Modifier.fillMaxWidth()) {
@@ -68,6 +70,8 @@ internal fun AdultRelics(onAsk: (Relic) -> Unit) {
                 Text(relic.title, style = MaterialTheme.typography.titleLarge)
                 Text(relic.adultText, style = MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick = { onAsk(relic) }) { Text("深入讲解") }
+                OutlinedButton(onClick = { onObserve(relic) }, enabled = observationEnabled, modifier = Modifier.heightIn(min = Space.touch)
+                    .semantics { contentDescription = "记下${relic.title}的观察" }) { Text("记下观察") }
             }
         }
     }

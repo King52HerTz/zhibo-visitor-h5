@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +66,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private enum class DraftIdentityExit { MODE, LOGOUT, CHILD, ADULT }
+
 @Composable
 fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progressController: ProgressController? = null,
               observationController: LocalObservationController? = null, onCamera: (String, Uri) -> Unit = { _, _ -> }) {
@@ -76,6 +80,7 @@ fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progr
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun MuseumPages(state: MuseumState, controller: MuseumController?, modifier: Modifier = Modifier,
                         progress: ProgressState = ProgressState(), progressController: ProgressController? = null,
                         observationController: LocalObservationController? = null, onCamera: (String, Uri) -> Unit = { _, _ -> }) {
@@ -87,6 +92,75 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     var taskId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
     val observation = observationController?.state?.collectAsStateWithLifecycle()?.value
     val journalTab = if (state.audience == Audience.ADULT) 3 else 2
+    var pendingExit by rememberSaveable(mode) { mutableStateOf<DraftIdentityExit?>(null) }
+    var resumePendingDraft by rememberSaveable { mutableStateOf(false) }
+    fun waitingDraftAudience(): Audience? = if (state.audience == null && state.username != null)
+        observationController?.pendingDraftAudience(state.endpoint, state.username) else null
+    fun finishIdentityExit(action: DraftIdentityExit) {
+        if (observationController?.state?.value?.busy == true) return
+        if (observationController?.state?.value?.editing == true || waitingDraftAudience() != null)
+            observationController?.cancelDraft()
+        resumePendingDraft = false
+        pendingExit = null
+        chapter = false; sources = false; taskId = null; tab = 0
+        when (action) {
+            DraftIdentityExit.MODE -> controller?.chooseMode()
+            DraftIdentityExit.LOGOUT -> controller?.logout()
+            DraftIdentityExit.CHILD -> controller?.selectAudience(Audience.CHILD)
+            DraftIdentityExit.ADULT -> controller?.selectAudience(Audience.ADULT)
+        }
+    }
+    fun requestIdentityExit(action: DraftIdentityExit) {
+        if (observationController?.state?.value?.busy == true) return
+        if (observationController?.hasUnsavedDraft() == true || waitingDraftAudience() != null) pendingExit = action
+        else finishIdentityExit(action)
+    }
+    fun selectAudience(audience: Audience) {
+        if (observationController?.state?.value?.busy == true) return
+        val waiting = waitingDraftAudience()
+        if (waiting != null && waiting != audience) {
+            pendingExit = if (audience == Audience.CHILD) DraftIdentityExit.CHILD else DraftIdentityExit.ADULT
+        } else {
+            resumePendingDraft = waiting == audience
+            controller?.selectAudience(audience)
+        }
+    }
+    fun keepIdentityDraft() {
+        pendingExit = null
+        observationController?.keepDraft()
+        if (state.audience == null) return
+        controller?.stop()
+        tab = journalTab; chapter = false; sources = false; taskId = null; introDone = true
+    }
+    fun openObservation(relic: Relic) {
+        observationController?.let {
+            if (it.state.value.loading || it.state.value.busy) return
+            it.newRecord(relic.id)
+            tab = journalTab; chapter = false; sources = false; taskId = null
+        }
+    }
+    pendingExit?.let { action ->
+        val actionLabel = when (action) {
+            DraftIdentityExit.MODE -> "切换模式"
+            DraftIdentityExit.LOGOUT -> "退出登录"
+            DraftIdentityExit.CHILD -> "进入儿童模式"
+            DraftIdentityExit.ADULT -> "进入成人模式"
+        }
+        AlertDialog(onDismissRequest = ::keepIdentityDraft, title = { Text("放下草稿？") },
+            text = { Text("${actionLabel}会放下未保存的文字和照片，已保存的记录会保留。") },
+            confirmButton = { TextButton(onClick = { finishIdentityExit(action) }, enabled = observation?.busy != true,
+                modifier = Modifier.heightIn(min = Space.touch)) {
+                Text(if (action == DraftIdentityExit.LOGOUT) "放下草稿并退出" else "放下草稿并切换")
+            } },
+            dismissButton = { TextButton(onClick = ::keepIdentityDraft,
+                modifier = Modifier.heightIn(min = Space.touch)) { Text(if (state.audience == null) "返回选择模式" else "继续记录") } })
+    }
+    LaunchedEffect(resumePendingDraft, mode, observation?.editing) {
+        if (resumePendingDraft && state.audience != null && observation?.editing == true) {
+            tab = journalTab; introDone = true
+            resumePendingDraft = false
+        }
+    }
     val pageScroll = rememberScrollState()
     LaunchedEffect(tab, chapter, taskId, mode, observation?.editing) { pageScroll.scrollTo(0) }
     BackHandler(mode.isNotEmpty()) {
@@ -96,7 +170,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             sources -> sources = false
             chapter -> chapter = false
             tab != 0 -> { controller?.stop(); tab = 0 }
-            else -> controller?.chooseMode()
+            else -> requestIdentityExit(DraftIdentityExit.MODE)
         }
     }
     val audience = state.audience
@@ -116,8 +190,8 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     }
     val chatTab = if (audience == Audience.ADULT) 2 else 1
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    if (audience == Audience.CHILD && !introDone) {
-        BackHandler { controller?.chooseMode() }
+    if (audience == Audience.CHILD && !introDone && !resumePendingDraft) {
+        BackHandler { requestIdentityExit(DraftIdentityExit.MODE) }
         StoryInvitation { introDone = true }
         return
     }
@@ -169,7 +243,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                 { controller?.stop() }, { controller?.loadConversation() },
                 { controller?.loadConversation(new = true) }, { controller?.loadConversation(it) },
                 { controller?.selectExhibit(it) }, modifier = Modifier.padding(padding).fillMaxSize(),
-                onMode = { controller?.chooseMode(); chapter = false; sources = false; tab = 0 })
+                onMode = { requestIdentityExit(DraftIdentityExit.MODE) })
             return@Scaffold
         }
         Column(modifier = Modifier.padding(padding).fillMaxSize()
@@ -184,27 +258,31 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                 Text("已登录 · ${state.username}", style = MaterialTheme.typography.bodySmall)
                 Abo(Modifier.height(120.dp))
                 Text("今天，怎样出发？", style = MaterialTheme.typography.headlineMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(Space.small)) {
                     Audience.entries.forEach { option ->
-                        OutlinedButton(onClick = { controller?.selectAudience(option) }) { Text(option.label) }
+                        OutlinedButton(onClick = { selectAudience(option) }, enabled = observation?.busy != true) { Text(option.label) }
                     }
                 }
-                OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                OutlinedButton(onClick = { requestIdentityExit(DraftIdentityExit.LOGOUT) }, enabled = observation?.busy != true,
+                    modifier = Modifier.heightIn(min = Space.touch)) { Text("退出登录") }
             } else {
                 Text("已登录 · ${state.username}", style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(onClick = { controller?.chooseMode(); chapter = false; sources = false; tab = 0 }) {
+                OutlinedButton(onClick = { requestIdentityExit(DraftIdentityExit.MODE) }, enabled = observation?.busy != true,
+                    modifier = Modifier.heightIn(min = Space.touch)) {
                     Text("${audience.label} · 切换模式")
                 }
                 when {
-                    audience == Audience.ADULT && tab == 1 -> AdultRelics { relic ->
+                    audience == Audience.ADULT && tab == 1 -> AdultRelics(onAsk = { relic ->
                         controller?.selectExhibit(relic.id); tab = chatTab
-                    }
+                    }, onObserve = ::openObservation, observationEnabled = observation?.loading != true && observation?.busy != true)
                     audience == Audience.ADULT && tab == 3 -> {
                         Text("我的旅程", style = MaterialTheme.typography.headlineLarge)
                         Text(state.username, style = MaterialTheme.typography.titleMedium)
                         OutlinedButton(onClick = { controller?.loadConversation(); tab = chatTab }) { Text("我的讲解记录") }
                         observationController?.let { LocalObservationPanel(audience, it, onCamera) }
-                        OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                        OutlinedButton(onClick = { requestIdentityExit(DraftIdentityExit.LOGOUT) }, enabled = observation?.busy != true,
+                            modifier = Modifier.heightIn(min = Space.touch)) { Text("退出登录") }
                     }
                     tab == 0 -> if (taskId != null) {
                         OutlinedButton(onClick = { taskId = null }) { Text("返回故事") }
@@ -221,7 +299,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         if (audience == Audience.ADULT || sources) ChapterContent(audience,
                             onTask = { taskId = it.id }, onAsk = { relic ->
                                 controller?.selectExhibit(relic.id); tab = chatTab; chapter = false
-                            })
+                            }, onObserve = ::openObservation, observationEnabled = observation?.loading != true && observation?.busy != true)
                         if (sources) SourceContent()
                         OutlinedButton(onClick = { controller?.selectExhibit(null); tab = chatTab; chapter = false }) {
                             Text(if (audience == Audience.CHILD) "问阿帛 · 本章" else "本章讲解")
@@ -241,7 +319,8 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                             JournalContent(audience, progress, onExplore = { tab = 0; chapter = true },
                                 onSync = { progressController?.sync() })
                             if (audience == Audience.CHILD) StoryChapterContent(state.endpoint, state.username, { openStorySlice() }, progress.progress.completed)
-                            OutlinedButton(onClick = { controller?.logout() }) { Text("退出登录") }
+                            OutlinedButton(onClick = { requestIdentityExit(DraftIdentityExit.LOGOUT) }, enabled = observation?.busy != true,
+                                modifier = Modifier.heightIn(min = Space.touch)) { Text("退出登录") }
                         }
                     }
                 }
@@ -275,7 +354,8 @@ private fun HomeContent(audience: Audience, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun ChapterContent(audience: Audience, onTask: (ObservationTask) -> Unit, onAsk: (Relic) -> Unit) {
+private fun ChapterContent(audience: Audience, onTask: (ObservationTask) -> Unit, onAsk: (Relic) -> Unit,
+                           onObserve: (Relic) -> Unit, observationEnabled: Boolean) {
     Text("衣服里的秘密", style = MaterialTheme.typography.headlineLarge)
     FirstChapter.relics.forEach { relic ->
         Text(relic.title, style = MaterialTheme.typography.titleLarge)
@@ -284,6 +364,8 @@ private fun ChapterContent(audience: Audience, onTask: (ObservationTask) -> Unit
             Action(onClick = { onTask(task) }) { Text("观察任务 · ${task.title}") }
         }
         OutlinedButton(onClick = { onAsk(relic) }) { Text("关于${relic.title}，问阿帛") }
+        OutlinedButton(onClick = { onObserve(relic) }, enabled = observationEnabled, modifier = Modifier.heightIn(min = Space.touch)
+            .semantics { contentDescription = "记下${relic.title}的观察" }) { Text("记下观察") }
         HorizontalDivider()
     }
     Text(if (audience == Audience.CHILD) "观察邀请：看看衣料，再找找像枝叶的纹样。不用记年份，也不用触摸文物。" else
