@@ -24,7 +24,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import java.net.URI
+import java.net.URISyntaxException
 
 @Composable
 fun MuseumButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
@@ -98,15 +103,38 @@ fun ChatBubble(line: ChatLine, onOption: (String) -> Unit, modifier: Modifier = 
                         modifier = Modifier.heightIn(min = Space.touch)) { Text(option) }
                 }
                 if (line.evidence.isNotEmpty()) {
-                    TextButton(onClick = { expanded = !expanded }) {
+                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.semantics {
+                        stateDescription = if (expanded) "已展开" else "已收起"
+                    }) {
                         Text(if (expanded) "收起引用" else "展开引用 · ${line.evidence.size} 条")
                     }
+                    if (expanded) Text("资料来源", modifier = Modifier.semantics { heading() },
+                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     if (expanded) line.evidence.forEachIndexed { index, evidence ->
-                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                        var sourceUnavailable by remember(evidence) { mutableStateOf(false) }
+                        val sourceUrl = evidence.url?.takeIf { candidate ->
+                            try {
+                                val uri = URI(candidate)
+                                uri.scheme == "https" && !uri.host.isNullOrBlank()
+                            } catch (_: URISyntaxException) { false }
+                        }
+                        Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))) {
                             Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
                                 Text("[${index + 1}] ${evidence.filename}", style = MaterialTheme.typography.titleSmall)
-                                Text(evidence.text, style = MaterialTheme.typography.bodyMedium)
-                                if (evidence.url != null) TextButton(onClick = { uriHandler.openUri(evidence.url) }) { Text("打开来源网页") }
+                                SelectionContainer { Text(evidence.text, style = MaterialTheme.typography.bodyMedium) }
+                                if (sourceUrl != null) TextButton(onClick = {
+                                    sourceUnavailable = false
+                                    try { uriHandler.openUri(sourceUrl) }
+                                    catch (_: IllegalArgumentException) { sourceUnavailable = true }
+                                }, modifier = Modifier.heightIn(min = Space.touch)) {
+                                    Text(if (sourceUnavailable) "重试打开来源网页" else "打开来源网页")
+                                }
+                                if (sourceUnavailable || (evidence.url != null && sourceUrl == null)) Text(
+                                    if (sourceUnavailable) "网页暂时无法打开，引用摘录仍可阅读。"
+                                    else "网页链接不可用，引用摘录仍可阅读。",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
