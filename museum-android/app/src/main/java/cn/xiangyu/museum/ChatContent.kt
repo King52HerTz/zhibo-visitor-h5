@@ -1,6 +1,7 @@
 package cn.xiangyu.museum
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
@@ -125,21 +126,36 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                             !state.chatBusy && !state.needsRefresh, author = if (child) "阿帛" else "湘遇讲解")
                     }
                     if (hasFeedback) item {
-                        Column(verticalArrangement = Arrangement.spacedBy(Space.small)) {
-                            if (state.status.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Space.small)) {
-                                if (state.chatBusy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Text(state.status, style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        val errorOnly = state.error != null && !state.needsRefresh
+                        Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+                            color = if (errorOnly) MaterialTheme.colorScheme.errorContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            contentColor = if (errorOnly) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onSurface,
+                            border = BorderStroke(1.dp, (if (errorOnly) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary).copy(alpha = 0.14f))) {
+                            Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                                    if (state.chatBusy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Text(when {
+                                        state.chatBusy -> "正在处理"
+                                        state.needsRefresh -> "会话需要核对"
+                                        state.error != null -> "暂时遇到问题"
+                                        else -> "会话提示"
+                                    }, modifier = Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleSmall)
+                                }
+                                if (state.status.isNotBlank()) Text(state.status, style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                            }
-                            state.error?.let { MuseumNotice(it, error = true) }
-                            if (state.needsRefresh) {
-                                Text("问题已保留，请先刷新核对记录。", style = MaterialTheme.typography.bodySmall)
-                                FilledTonalButton(onClick = onReload, enabled = !state.chatBusy,
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                        contentColor = MaterialTheme.colorScheme.primary)) { Text("刷新会话") }
+                                state.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                                if (state.needsRefresh) {
+                                    Text("问题已保留，请先刷新核对记录。", style = MaterialTheme.typography.bodyMedium)
+                                    FilledTonalButton(onClick = onReload, enabled = !state.chatBusy,
+                                        modifier = Modifier.heightIn(min = Space.touch),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                            contentColor = MaterialTheme.colorScheme.primary)) { Text("刷新会话") }
+                                }
                             }
                         }
                     }
