@@ -92,10 +92,12 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     var taskId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
     val observation = observationController?.state?.collectAsStateWithLifecycle()?.value
     val journalTab = if (state.audience == Audience.ADULT) 3 else 2
+    val chatTab = if (state.audience == Audience.ADULT) 2 else 1
     var pendingExit by rememberSaveable(mode) { mutableStateOf<DraftIdentityExit?>(null) }
     var resumePendingDraft by rememberSaveable { mutableStateOf(false) }
     fun waitingDraftAudience(): Audience? = if (state.audience == null && state.username != null)
         observationController?.pendingDraftAudience(state.endpoint, state.username) else null
+    fun hasObservationDraft(): Boolean = observationController?.hasUnsavedDraft() == true || waitingDraftAudience() != null
     fun finishIdentityExit(action: DraftIdentityExit) {
         if (observationController?.state?.value?.busy == true) return
         if (observationController?.state?.value?.editing == true || waitingDraftAudience() != null)
@@ -112,7 +114,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     }
     fun requestIdentityExit(action: DraftIdentityExit) {
         if (observationController?.state?.value?.busy == true) return
-        if (observationController?.hasUnsavedDraft() == true || waitingDraftAudience() != null) pendingExit = action
+        if (state.draft.isNotBlank() || hasObservationDraft()) pendingExit = action
         else finishIdentityExit(action)
     }
     fun selectAudience(audience: Audience) {
@@ -130,7 +132,8 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         observationController?.keepDraft()
         if (state.audience == null) return
         controller?.stop()
-        tab = journalTab; chapter = false; sources = false; taskId = null; introDone = true
+        tab = if (hasObservationDraft()) journalTab else chatTab
+        chapter = false; sources = false; taskId = null; introDone = true
     }
     fun openObservation(relic: Relic) {
         observationController?.let {
@@ -146,14 +149,24 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             DraftIdentityExit.CHILD -> "进入儿童模式"
             DraftIdentityExit.ADULT -> "进入成人模式"
         }
-        AlertDialog(onDismissRequest = ::keepIdentityDraft, title = { Text("放下草稿？") },
-            text = { Text("${actionLabel}会放下未保存的文字和照片，已保存的记录会保留。") },
+        val chatOnly = state.draft.isNotBlank() && !hasObservationDraft()
+        val discardedContent = if (chatOnly) "问题" else "草稿"
+        AlertDialog(onDismissRequest = ::keepIdentityDraft, title = { Text(if (chatOnly) "问题还没发送" else "放下草稿？") },
+            text = { Text(when {
+                chatOnly -> "${actionLabel}会清空当前未发送的问题。"
+                state.draft.isNotBlank() -> "${actionLabel}会放下未保存的文字、照片和未发送的问题，已保存的记录会保留。"
+                else -> "${actionLabel}会放下未保存的文字和照片，已保存的记录会保留。"
+            }) },
             confirmButton = { TextButton(onClick = { finishIdentityExit(action) }, enabled = observation?.busy != true,
                 modifier = Modifier.heightIn(min = Space.touch)) {
-                Text(if (action == DraftIdentityExit.LOGOUT) "放下草稿并退出" else "放下草稿并切换")
+                Text(if (action == DraftIdentityExit.LOGOUT) "放下${discardedContent}并退出" else "放下${discardedContent}并切换")
             } },
             dismissButton = { TextButton(onClick = ::keepIdentityDraft,
-                modifier = Modifier.heightIn(min = Space.touch)) { Text(if (state.audience == null) "返回选择模式" else "继续记录") } })
+                modifier = Modifier.heightIn(min = Space.touch)) { Text(when {
+                    state.audience == null -> "返回选择模式"
+                    chatOnly -> "继续提问"
+                    else -> "继续记录"
+                }) } })
     }
     LaunchedEffect(resumePendingDraft, mode, observation?.editing) {
         if (resumePendingDraft && state.audience != null && observation?.editing == true) {
@@ -188,7 +201,6 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                 .putExtra("story_slice", true))
         }
     }
-    val chatTab = if (audience == Audience.ADULT) 2 else 1
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     if (audience == Audience.CHILD && !introDone && !resumePendingDraft) {
         BackHandler { requestIdentityExit(DraftIdentityExit.MODE) }
