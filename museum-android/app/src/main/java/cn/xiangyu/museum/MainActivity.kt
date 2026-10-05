@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
@@ -151,7 +153,9 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         }
         val chatOnly = state.draft.isNotBlank() && !hasObservationDraft()
         val discardedContent = if (chatOnly) "问题" else "草稿"
-        AlertDialog(onDismissRequest = ::keepIdentityDraft, title = { Text(if (chatOnly) "问题还没发送" else "放下草稿？") },
+        val dialogTitle = if (chatOnly) "问题还没发送" else "放下草稿？"
+        AlertDialog(onDismissRequest = ::keepIdentityDraft, modifier = Modifier.semantics { paneTitle = dialogTitle },
+            title = { Text(dialogTitle, modifier = Modifier.semantics { heading() }) },
             text = { Text(when {
                 chatOnly -> "${actionLabel}会清空当前未发送的问题。"
                 state.draft.isNotBlank() -> "${actionLabel}会放下未保存的文字、照片和未发送的问题，已保存的记录会保留。"
