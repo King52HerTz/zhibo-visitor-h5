@@ -21,13 +21,13 @@ internal fun BrandSplash(onFinished: () -> Unit) {
     var visible by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (visible) 1f else .82f, label = "brand")
     LaunchedEffect(Unit) { visible = true; delay(1000); onFinished() }
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center) {
-        Image(painterResource(R.drawable.app_emblem), null,
-            Modifier.size(112.dp).graphicsLayer { scaleX = scale; scaleY = scale })
-        Spacer(Modifier.height(20.dp))
-        Text("湘遇", style = MaterialTheme.typography.headlineLarge)
-        Text("文物里的故事", style = MaterialTheme.typography.bodyMedium)
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Image(painterResource(R.drawable.zhibo_motif), null,
+            Modifier.fillMaxWidth().fillMaxHeight(.32f).align(Alignment.BottomCenter),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alignment = Alignment.BottomCenter)
+        BrandLockup(Modifier.align(Alignment.Center).offset(y = (-40).dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }, sealSize = 116)
     }
 }
 

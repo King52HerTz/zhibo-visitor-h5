@@ -4,6 +4,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,17 +20,20 @@ object Space {
 fun MuseumTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF146C72), onPrimary = Color.White,
-            secondary = Color(0xFFF4A35D), onSecondary = Color(0xFF193E40),
-            tertiary = Color(0xFFA33E37),
-            background = Color(0xFFFFF9EF), onBackground = Color(0xFF193E40),
-            surface = Color(0xFFFFF9EF), onSurface = Color(0xFF193E40),
-            surfaceContainerHigh = Color(0xFFFFF9EF),
-            surfaceVariant = Color(0xFFE4EED7), onSurfaceVariant = Color(0xFF365D4B)
+            primary = Color(0xFFAE391E), onPrimary = Color(0xFFFFF7E7),
+            secondary = Color(0xFFEED5AB), onSecondary = Color(0xFF392413),
+            secondaryContainer = Color(0xFFF0CDB0), onSecondaryContainer = Color(0xFF852D18),
+            tertiary = Color(0xFF5D6A4B),
+            background = Color(0xFFFFEDCF), onBackground = Color(0xFF392413),
+            surface = Color(0xFFFFEDCF), onSurface = Color(0xFF392413),
+            surfaceContainer = Color(0xFFF9E4BF), surfaceContainerHigh = Color(0xFFFFE9C5),
+            surfaceVariant = Color(0xFFF4DCB6), onSurfaceVariant = Color(0xFF654B34),
+            outline = Color(0xFF8D6744), outlineVariant = Color(0xFFC9A87D)
         ),
         typography = Typography(
-            headlineLarge = TextStyle(fontSize = 30.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold),
-            titleLarge = TextStyle(fontSize = 23.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+            headlineLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = 30.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold),
+            titleMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
+            titleLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = 23.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
             bodyLarge = TextStyle(fontSize = 18.sp, lineHeight = 30.sp),
             bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 26.sp),
             labelLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),

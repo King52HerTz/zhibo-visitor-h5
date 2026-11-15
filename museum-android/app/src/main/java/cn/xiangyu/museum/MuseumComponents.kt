@@ -1,9 +1,6 @@
 package cn.xiangyu.museum
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.BorderStroke
@@ -13,12 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,23 +25,8 @@ import java.net.URISyntaxException
 @Composable
 fun MuseumButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
                  content: @Composable RowScope.() -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val sheet = ImageBitmap.imageResource(R.drawable.button_sprites_v2)
-    val row = if (!enabled) 2 else if (pressed) 1 else 0
-    val sourceTop = intArrayOf(110, 402, 697)[row]
-    val painter = remember(sheet, row) {
-        BitmapPainter(sheet, srcOffset = IntOffset(48, sourceTop),
-            srcSize = IntSize(sheet.width - 96, 245))
-    }
-    Box(modifier.fillMaxWidth().heightIn(min = Space.touch), contentAlignment = Alignment.Center) {
-        Image(painter, contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
-        Button(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch), enabled = enabled,
-            interactionSource = interaction,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSecondary,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant), content = content)
-    }
+    Button(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = Space.touch),
+        enabled = enabled, shape = RoundedCornerShape(9.dp), content = content)
 }
 
 @Composable
@@ -91,8 +67,8 @@ fun ChatBubble(line: ChatLine, onOption: (String) -> Unit, modifier: Modifier = 
             fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Surface(shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp,
             bottomStart = if (line.human) 20.dp else 4.dp, bottomEnd = if (line.human) 4.dp else 20.dp),
-            color = if (line.human) MaterialTheme.colorScheme.primary else Color.White,
-            contentColor = if (line.human) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            color = if (line.human) MaterialTheme.colorScheme.secondary else Color(0xFFFFF5E1),
+            contentColor = if (line.human) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface,
             border = if (line.human) null else BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))) {
             Column(Modifier.padding(Space.medium), verticalArrangement = Arrangement.spacedBy(Space.small)) {
                 SelectionContainer { Text(line.text.ifEmpty { "正在核验资料…" }, style = MaterialTheme.typography.bodyLarge) }
