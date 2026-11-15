@@ -99,7 +99,7 @@ class LandscapePuzzleTest {
                 compose.onNodeWithText("儿童模式").performScrollTo().performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading }
                 compose.onNode(hasText("故事") and hasClickAction()).performClick()
-        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
+                compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
                 compose.onNodeWithText("进入横屏衣坊").performScrollTo().performClick()
                 waitFor("Landscape must open") {
                     instrumentation.uiAutomation.takeScreenshot().let { bitmap ->
@@ -148,7 +148,7 @@ class LandscapePuzzleTest {
                 compose.waitUntil(5000) { "clothes-light-v1" in model().progress.state.value.progress.completed }
                 assertEquals(2, model().progress.state.value.progress.completed.size)
                 compose.onNode(hasText("我的") and hasClickAction()).performClick()
-        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
+                compose.onNodeWithText("观展手帐").performScrollTo().performClick()
                 compose.onNodeWithText("首章纪念页 · 已获得").assertExists()
                 runBlocking {
                     SqliteProgressStore(instrumentation.targetContext).use {

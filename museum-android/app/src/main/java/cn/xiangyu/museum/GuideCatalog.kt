@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -61,13 +62,14 @@ internal fun GuideNav(audience: Audience, current: GuideTab, onSelect: (GuideTab
 }
 
 @Composable
-internal fun GuideHeader(audience: Audience, onMode: () -> Unit) {
+internal fun GuideHeader(audience: Audience, modeEnabled: Boolean, onMode: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(R.drawable.zhibo_seal), null, Modifier.size(30.dp))
         Text("智博导览", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        OutlinedButton(onClick = onMode, contentPadding = PaddingValues(horizontal = 12.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
+        OutlinedButton(onClick = onMode, enabled = modeEnabled,
+            modifier = Modifier.semantics { contentDescription = "切换导览模式" },
+            contentPadding = PaddingValues(horizontal = 12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
             Text(audience.label, color = MaterialTheme.colorScheme.primary)
         }
     }
@@ -150,6 +152,8 @@ internal fun ExhibitPage(audience: Audience, selected: GuideExhibit?, saved: Boo
                          onAsk: (GuideExhibit) -> Unit, onSave: (GuideExhibit) -> Unit,
                          onNote: (Relic) -> Unit) {
     val child = audience == Audience.CHILD
+    var query by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("全部") }
     if (selected != null) {
         TextButton(onClick = onBack) { Text("返回展品") }
         GuideTitle(selected.name)
@@ -163,13 +167,12 @@ internal fun ExhibitPage(audience: Audience, selected: GuideExhibit?, saved: Boo
         MuseumButton({ onAsk(selected) }) { Text("问问这件文物") }
         OutlinedButton(onClick = { onSave(selected) }) { Text(if (saved) "取消收藏" else "收藏展品") }
         FirstChapter.relics.firstOrNull { it.id == selected.id }?.let { relic ->
-            OutlinedButton(onClick = { onNote(relic) }) { Text("记下观察") }
+            OutlinedButton(onClick = { onNote(relic) },
+                modifier = Modifier.semantics { contentDescription = "记下${relic.title}的观察" }) { Text("记下观察") }
         }
         return
     }
     GuideTitle(if (child) "看文物" else "馆藏展品")
-    var query by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("全部") }
     if (!child) {
         MuseumField(query, { query = it }, "搜索文物、年代或类别")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -263,7 +263,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                     requestIdentityExit(DraftIdentityExit.LOGOUT)
                 }
             } else if (library != null) {
-                GuideHeader(audience) { requestIdentityExit(DraftIdentityExit.MODE) }
+                GuideHeader(audience, observation?.busy != true) { requestIdentityExit(DraftIdentityExit.MODE) }
                 when (tab) {
                     GuideTab.EXHIBITS -> ExhibitPage(audience, guideExhibits.firstOrNull { it.id == exhibitId },
                         exhibitId in library.saved, ::openExhibit, { exhibitId = null }, ::askExhibit,
@@ -296,25 +296,18 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         { gameId = null }, { library.finishGame(it.id) }, ::openStorySlice, ::openPuzzle)
                     GuideTab.GRAPH -> GraphPage(::openExhibit, ::askExhibit)
                     GuideTab.TIMELINE -> TimelinePage(::openExhibit)
-                    GuideTab.MINE -> {
-                        if (observation?.editing == true) {
-                            LocalObservationPanel(audience, checkNotNull(observationController), onCamera)
-                        } else {
-                            MinePage(audience, library, ::openExhibit, ::openStory, {
-                                gameId = it.id; tab = GuideTab.GAMES
-                            }, {
-                                showHistory = true; tab = chatTab
-                            }, {
-                                requestIdentityExit(DraftIdentityExit.MODE)
-                            }, {
-                                requestIdentityExit(DraftIdentityExit.LOGOUT)
-                            }) {
-                                observationController?.let { LocalObservationPanel(audience, it, onCamera) }
-                                if (audience == Audience.CHILD) JournalContent(audience, progress, onExplore = {
-                                    tab = GuideTab.STORIES; chapter = true
-                                }, onSync = { progressController?.sync() })
-                            }
-                        }
+                    GuideTab.MINE -> MinePage(audience, library, ::openExhibit, ::openStory, {
+                        gameId = it.id; tab = GuideTab.GAMES
+                    }, {
+                        showHistory = true; tab = chatTab
+                    }, {
+                        requestIdentityExit(DraftIdentityExit.MODE)
+                    }, {
+                        requestIdentityExit(DraftIdentityExit.LOGOUT)
+                    }, editing = observation?.editing == true, identityEnabled = observation?.busy != true) {
+                        observationController?.let { LocalObservationPanel(audience, it, onCamera) }
+                        if (audience == Audience.CHILD && observation?.editing != true) JournalContent(audience, progress,
+                            onExplore = { tab = GuideTab.STORIES; chapter = true }, onSync = { progressController?.sync() })
                     }
                     GuideTab.CHAT -> Unit
                 }

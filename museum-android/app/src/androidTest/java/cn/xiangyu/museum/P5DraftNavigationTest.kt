@@ -43,7 +43,8 @@ class P5DraftNavigationTest {
     }
 
     private fun tab(label: String) = compose.onNode(hasText(label) and hasClickAction())
-    private fun switchMode() = compose.onNode(hasText("切换模式", substring = true) and hasClickAction())
+    private fun switchMode() = compose.onNode(
+        (hasText("切换模式", substring = true) or hasContentDescription("切换导览模式")) and hasClickAction())
 
     private fun hideKeyboard() {
         compose.runOnUiThread {
@@ -57,6 +58,9 @@ class P5DraftNavigationTest {
 
     private fun draft(audience: Audience) {
         tab("我的").performClick()
+        val notes = if (audience == Audience.CHILD) "观展手帐" else "观展笔记"
+        if (compose.onAllNodesWithText("新建观察记录").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithText(notes).performScrollTo().performClick()
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).performScrollTo().performTextInput(draftText)
         hideKeyboard()
@@ -147,7 +151,7 @@ class P5DraftNavigationTest {
         screenshot("p5-mode-return-draft", "写一句自己的发现")
         switchMode().performScrollTo().performClick()
         compose.onNodeWithText("放下草稿并切换").performClick()
-        compose.onNodeWithText("今天，怎样出发？").assertIsDisplayed()
+        compose.onNodeWithText("选择导览模式").assertIsDisplayed()
         assertNull(model().controller.state.value.audience)
         assertFalse(model().observations.state.value.editing)
         enter(Audience.ADULT)
@@ -183,7 +187,7 @@ class P5DraftNavigationTest {
         enter(Audience.ADULT)
         draft(Audience.ADULT)
         val draftId = model().observations.state.value.draftId
-        tab("讲解").performClick()
+        tab("对话").performClick()
         compose.waitUntil(5000) { !model().controller.state.value.chatBusy }
         switchMode().performClick()
         compose.onNodeWithText("放下草稿？").assertIsDisplayed()
@@ -200,14 +204,14 @@ class P5DraftNavigationTest {
         draft(Audience.CHILD)
         tab("对话").performClick()
         back()
-        tab("探索").assertIsSelected()
+        tab("展品").assertIsSelected()
         assertEquals(Audience.CHILD, model().controller.state.value.audience)
         back()
         compose.onNodeWithText("放下草稿？").assertIsDisplayed()
         compose.onNodeWithText("继续记录").performClick()
         tab("我的").assertIsSelected()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).assertTextContains(draftText)
-        tab("探索").performClick()
+        tab("展品").performClick()
         back()
         compose.onNodeWithText("放下草稿并切换").performClick()
         assertNull(model().controller.state.value.audience)
@@ -217,7 +221,8 @@ class P5DraftNavigationTest {
     @Test fun storyInvitationBackUsesTheSameDraftProtection() {
         enter(Audience.CHILD)
         draft(Audience.CHILD)
-        tab("探索").performClick()
+        tab("故事").performClick()
+        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
         compose.onNodeWithText("重看故事引入").performScrollTo().performClick()
         compose.onNodeWithText("跳过引入").assertIsDisplayed()
         back()
@@ -230,7 +235,8 @@ class P5DraftNavigationTest {
     @Test fun relicEntrypointsUseStableContextAndPreserveAnExistingDraft() {
         enter(Audience.ADULT)
         val progress = model().progress.state.value.progress
-        tab("文物").performClick()
+        tab("展品").performClick()
+        compose.onNode(hasText(FirstChapter.relics.last().title) and hasClickAction()).performScrollTo().performClick()
         compose.onNodeWithContentDescription("记下${FirstChapter.relics.last().title}的观察").performScrollTo().performClick()
         tab("我的").assertIsSelected()
         assertEquals(FirstChapter.relics.last().id, model().observations.state.value.relicId)
@@ -239,7 +245,8 @@ class P5DraftNavigationTest {
         compose.onNodeWithText("写一句自己的发现").performScrollTo()
         screenshot("p5-relic-observation", "写一句自己的发现")
         val draftId = model().observations.state.value.draftId
-        tab("文物").performClick()
+        tab("展品").performClick()
+        compose.onNode(hasText(FirstChapter.relics.first().title) and hasClickAction()).performScrollTo().performClick()
         compose.onNodeWithContentDescription("记下${FirstChapter.relics.first().title}的观察").performScrollTo().performClick()
         tab("我的").assertIsSelected()
         assertEquals(draftId, model().observations.state.value.draftId)
@@ -277,7 +284,7 @@ class P5DraftNavigationTest {
             compose.onNodeWithText("继续记录").performClick()
             switchMode().performScrollTo().assertIsNotEnabled()
             compose.onNodeWithText("退出登录").performScrollTo().assertIsNotEnabled()
-            tab("讲解").performClick()
+            tab("对话").performClick()
             compose.waitUntil(5000) { !model().controller.state.value.chatBusy }
             switchMode().performClick()
             compose.onNodeWithText("放下草稿？").assertDoesNotExist()

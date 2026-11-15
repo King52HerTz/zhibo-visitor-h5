@@ -163,7 +163,7 @@ class ChatDraftExitTest {
         compose.onNodeWithText("放下问题并切换").performClick()
         assertNull(model().controller.state.value.audience)
         assertEquals("", model().controller.state.value.draft)
-        compose.onNodeWithText("今天，怎样出发？").assertIsDisplayed()
+        compose.onNodeWithText("选择导览模式").assertIsDisplayed()
         assertNoSends()
     }
 
@@ -193,13 +193,14 @@ class ChatDraftExitTest {
         compose.waitUntil(5000) { model().controller.state.value.username == null && !model().controller.state.value.authBusy }
         assertNull(model().controller.state.value.audience)
         assertEquals("", model().controller.state.value.draft)
-        compose.onNodeWithText("登录").assertExists()
+        compose.onNode(hasText("登录") and hasClickAction()).assertExists()
         assertNoSends()
     }
 
     @Test fun combinedDraftsUseOneConfirmationAndCancelKeepsBothInTheJournal() {
         enter(Audience.ADULT)
         journalTab(Audience.ADULT).performClick()
+        compose.onNodeWithText("观展笔记").performScrollTo().performClick()
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).performScrollTo().performTextInput(observation)
         hideKeyboard()
@@ -249,7 +250,7 @@ class ChatDraftExitTest {
         compose.onNodeWithText("问题还没发送").assertDoesNotExist()
         compose.onNodeWithText("放下草稿？").assertDoesNotExist()
         assertEquals(question, model().controller.state.value.draft)
-        tab("故事").performClick().assertIsSelected()
+        tab("图解").performClick().assertIsSelected()
         assertEquals(question, model().controller.state.value.draft)
         chatTab(Audience.ADULT).performClick().assertIsSelected()
         input().assertTextContains(question)
@@ -258,7 +259,7 @@ class ChatDraftExitTest {
         assertNull(model().controller.state.value.audience)
         compose.onNodeWithText("问题还没发送").assertDoesNotExist()
         compose.onNodeWithText("放下草稿？").assertDoesNotExist()
-        compose.onNodeWithText("今天，怎样出发？").assertIsDisplayed()
+        compose.onNodeWithText("选择导览模式").assertIsDisplayed()
         enter(Audience.ADULT)
         assertEquals("", model().controller.state.value.draft)
         journalTab(Audience.ADULT).performClick()

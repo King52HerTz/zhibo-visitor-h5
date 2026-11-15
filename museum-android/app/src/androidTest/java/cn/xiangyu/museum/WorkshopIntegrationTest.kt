@@ -37,7 +37,7 @@ class WorkshopIntegrationTest {
                 compose.onNodeWithText("儿童模式").performScrollTo().performClick()
                 compose.waitUntil(5000) { !model().progress.state.value.loading }
                 compose.onNode(hasText("故事") and hasClickAction()).performClick()
-        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
+                compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
                 compose.onNodeWithText("阿帛的汉代衣坊").performScrollTo().assertIsDisplayed()
                 shot("workshop-app-scene.png")
                 compose.onNodeWithText("衣服", substring = false).performScrollTo().performClick()
@@ -51,7 +51,7 @@ class WorkshopIntegrationTest {
                 compose.waitUntil(5000) { model().progress.state.value.progress.completed.size == 2 }
                 shot("workshop-app-flower.png")
                 compose.onNode(hasText("我的") and hasClickAction()).performClick()
-        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
+                compose.onNodeWithText("观展手帐").performScrollTo().performClick()
                 compose.onNodeWithText("首章纪念页 · 已获得").assertExists()
                 compose.activityRule.scenario.recreate()
                 compose.onNodeWithText("首章纪念页 · 已获得").assertExists()

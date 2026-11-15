@@ -246,7 +246,7 @@ class ChatAccessibilityTest {
 
     @Test fun hiddenAdultQuestionKeepsAccessibleConfirmationAcrossRecreation() {
         login(Audience.ADULT)
-        tab("讲解").performClick()
+        tab("对话").performClick()
         compose.onNode(hasSetTextAction()).performTextInput(question)
         hideKeyboard()
         tab("我的").performClick().assertIsSelected()

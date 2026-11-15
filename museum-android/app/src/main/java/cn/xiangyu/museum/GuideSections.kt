@@ -255,52 +255,57 @@ private fun TimelineRecord(date: String, title: String, detail: String?, art: In
 @Composable
 internal fun MinePage(audience: Audience, library: GuideLibrary, onOpen: (GuideExhibit) -> Unit,
                       onStory: (GuideStory) -> Unit, onGame: (GuideGame) -> Unit, onHistory: () -> Unit,
-                      onMode: () -> Unit, onLogout: () -> Unit, onNotes: @Composable () -> Unit) {
+                      onMode: () -> Unit, onLogout: () -> Unit, editing: Boolean, identityEnabled: Boolean,
+                      onNotes: @Composable () -> Unit) {
     val child = audience == Audience.CHILD
-    var section by remember { mutableStateOf("") }
-    GuideTitle("我的")
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Image(painterResource(if (child) R.drawable.zhibo_child_mode else R.drawable.zhibo_nav_me), null,
-            Modifier.size(50.dp))
-        Text(if (child) "小小观展员" else "观展者", style = MaterialTheme.typography.titleLarge)
-    }
-    if (child) {
-        guideStories.firstOrNull { it.id == library.story }?.let {
-            ResumePanel("上次看到", it.title, it.art, "继续听") { onStory(it) }
+    val notes = if (child) "观展手帐" else "观展笔记"
+    var section by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(editing) { if (editing) section = notes }
+    if (editing) onNotes() else {
+        GuideTitle("我的")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Image(painterResource(if (child) R.drawable.zhibo_child_mode else R.drawable.zhibo_nav_me), null,
+                Modifier.size(50.dp))
+            Text(if (child) "小小观展员" else "观展者", style = MaterialTheme.typography.titleLarge)
         }
-    } else guideExhibits.firstOrNull { it.id == library.recent }?.let {
-        ResumePanel("最近浏览", it.name, it.art, "继续查看") { onOpen(it) }
-    }
-    Text("观展记录", style = MaterialTheme.typography.titleLarge)
-    val labels = if (child) listOf("收藏文物", "游戏进度", "对话记录", "观展手帐")
-        else listOf("收藏展品", "观展笔记", "对话记录")
-    labels.forEach { label ->
-        TextButton(onClick = {
-            if (label == "对话记录") onHistory() else section = if (section == label) "" else label
-        }, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) {
-            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Text("›")
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        if (section == label) when (label) {
-            labels.first() -> {
-                val saved = guideExhibits.filter { it.id in library.saved }
-                if (saved.isEmpty()) Text("还没有收藏，可以在展品详情里收藏。")
-                saved.forEach { TextButton(onClick = { onOpen(it) }) { Text(it.name) } }
+        if (child) {
+            guideStories.firstOrNull { it.id == library.story }?.let {
+                ResumePanel("上次看到", it.title, it.art, "继续听") { onStory(it) }
             }
-            "游戏进度" -> guideGames.forEach { game ->
-                TextButton(onClick = { onGame(game) }) {
-                    Text(game.title + if (game.id in library.games) " · 已完成" else " · 未完成")
+        } else guideExhibits.firstOrNull { it.id == library.recent }?.let {
+            ResumePanel("最近浏览", it.name, it.art, "继续查看") { onOpen(it) }
+        }
+        Text("观展记录", style = MaterialTheme.typography.titleLarge)
+        val labels = if (child) listOf("收藏文物", "游戏进度", "对话记录", "观展手帐")
+            else listOf("收藏展品", "观展笔记", "对话记录")
+        labels.forEach { label ->
+            TextButton(onClick = {
+                if (label == "对话记录") onHistory() else section = if (section == label) "" else label
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) {
+                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text("›")
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (section == label) when (label) {
+                labels.first() -> {
+                    val saved = guideExhibits.filter { it.id in library.saved }
+                    if (saved.isEmpty()) Text("还没有收藏，可以在展品详情里收藏。")
+                    saved.forEach { TextButton(onClick = { onOpen(it) }) { Text(it.name) } }
                 }
+                "游戏进度" -> guideGames.forEach { game ->
+                    TextButton(onClick = { onGame(game) }) {
+                        Text(game.title + if (game.id in library.games) " · 已完成" else " · 未完成")
+                    }
+                }
+                "观展笔记", "观展手帐" -> onNotes()
             }
-            "观展笔记", "观展手帐" -> onNotes()
         }
     }
-    OutlinedButton(onClick = onMode, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) {
+    OutlinedButton(onClick = onMode, enabled = identityEnabled, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) {
         Text("切换导览模式  ⇄")
     }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        FilledTonalButton(onClick = onLogout, modifier = Modifier.fillMaxWidth(.55f).heightIn(min = 48.dp)) {
+        FilledTonalButton(onClick = onLogout, enabled = identityEnabled, modifier = Modifier.fillMaxWidth(.55f).heightIn(min = 48.dp)) {
             Text("退出登录")
         }
     }
