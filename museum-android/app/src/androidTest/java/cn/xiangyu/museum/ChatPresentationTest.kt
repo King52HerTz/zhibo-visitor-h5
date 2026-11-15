@@ -81,7 +81,7 @@ class ChatPresentationTest {
         } }
         compose.onNodeWithText("展开引用 · 1 条").performScrollTo().performClick()
         compose.onNodeWithText("这段来源摘录仅用于界面测试。").assertExists()
-        compose.onNodeWithText("问阿帛").assertIsDisplayed()
+        compose.onNodeWithText("问文物").assertIsDisplayed()
         screenshot("chat-references.png")
         compose.runOnIdle { state = state.copy(needsRefresh = true, draft = "保留的问题", status = "已停止显示；服务器可能仍在处理，请刷新会话再继续") }
         compose.onNodeWithContentDescription("发送问题").assertIsNotEnabled()

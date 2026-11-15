@@ -30,8 +30,8 @@ class ChatDraftExitTest {
     private fun model() = ViewModelProvider(compose.activity)[MuseumViewModel::class.java]
     private fun key(audience: Audience) = ProgressKey(server.endpoint, username, audience)
     private fun tab(label: String) = compose.onNode(hasText(label) and hasClickAction())
-    private fun chatTab(audience: Audience) = tab(if (audience == Audience.CHILD) "问阿帛" else "讲解")
-    private fun journalTab(audience: Audience) = tab(if (audience == Audience.CHILD) "我的手帐" else "我的")
+    private fun chatTab(audience: Audience) = tab("对话")
+    private fun journalTab(audience: Audience) = tab("我的")
     private fun switchMode() = compose.onNode(hasText("切换模式", substring = true) and hasClickAction())
     private fun input(): SemanticsNodeInteraction {
         val state = model().controller.state.value
@@ -52,7 +52,6 @@ class ChatDraftExitTest {
 
     private fun enter(audience: Audience) {
         compose.onNodeWithText(audience.label).performScrollTo().performClick()
-        if (audience == Audience.CHILD) compose.onNodeWithText("跳过引入").performClick()
         compose.waitUntil(5000) { !model().progress.state.value.loading && !model().observations.state.value.loading &&
             !model().controller.state.value.chatBusy }
     }
@@ -194,7 +193,7 @@ class ChatDraftExitTest {
         compose.waitUntil(5000) { model().controller.state.value.username == null && !model().controller.state.value.authBusy }
         assertNull(model().controller.state.value.audience)
         assertEquals("", model().controller.state.value.draft)
-        compose.onNodeWithText("登录并开始旅行").assertExists()
+        compose.onNodeWithText("登录").assertExists()
         assertNoSends()
     }
 

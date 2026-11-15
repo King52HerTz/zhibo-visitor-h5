@@ -32,7 +32,10 @@ class ExperienceContentTest {
     @Test fun introductionCanBeSkippedWithoutCompletingTasks() {
         var ready = 0
         compose.setContent { MuseumTheme { StoryInvitation(previewOnly = true) { ready++ } } }
-        compose.onNodeWithText("跳过引入").performClick()
+        compose.onNodeWithText("故事").performClick()
+        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
+        compose.onNodeWithText("重看故事引入").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performScrollTo().performClick()
         assertEquals(1, ready)
     }
 }

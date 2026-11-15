@@ -90,11 +90,11 @@ class LocalObservationJourneyTest {
 
     @Test fun textObservationPersistsAndModesStaySeparateWithoutUnlockingTasks() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
         compose.waitUntil(5000) { !model().progress.state.value.loading && !model().observations.state.value.loading }
         val before = model().progress.state.value.progress
-        compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
-        navigationLabelsFitTheirItems(listOf("探索", "问阿帛", "我的手帐"))
+        compose.onNode(hasText("我的") and hasClickAction()).performClick()
+        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
+        navigationLabelsFitTheirItems(listOf("展品", "故事", "对话", "游戏", "我的"))
         compose.onNodeWithText("我的观察记录").assertExists()
         shot("p4-main-empty")
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
@@ -113,13 +113,14 @@ class LocalObservationJourneyTest {
         compose.waitUntil(5000) { !model().observations.state.value.editing && model().observations.state.value.records.size == 1 }
         compose.onNodeWithText("测试观察：我注意到轻薄的丝纱。").performScrollTo().assertIsDisplayed()
         shot("p4-main-saved")
-        navigationLabelsFitTheirItems(listOf("探索", "问阿帛", "我的手帐"))
+        navigationLabelsFitTheirItems(listOf("展品", "故事", "对话", "游戏", "我的"))
         assertEquals(before, model().progress.state.value.progress)
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("测试观察：我注意到轻薄的丝纱。").assertExists()
         compose.onNodeWithText("儿童模式 · 切换模式").performScrollTo().performClick()
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
         compose.onNode(hasText("我的") and hasClickAction()).performClick()
+        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
         navigationLabelsFitTheirItems(listOf("故事", "文物", "讲解", "我的"))
         compose.waitUntil(5000) { !model().observations.state.value.loading }
         compose.onNodeWithText("这一页，等你的发现").assertExists()
@@ -150,6 +151,7 @@ class LocalObservationJourneyTest {
     @Test fun systemCameraCancellationReturnsToTheSameTextDraft() {
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
         compose.onNode(hasText("我的") and hasClickAction()).performClick()
+        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
         compose.waitUntil(5000) { !model().observations.state.value.loading }
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).performScrollTo()

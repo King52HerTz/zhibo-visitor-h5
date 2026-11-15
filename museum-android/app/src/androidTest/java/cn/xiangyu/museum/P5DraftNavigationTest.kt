@@ -39,7 +39,6 @@ class P5DraftNavigationTest {
 
     private fun enter(audience: Audience) {
         compose.onNodeWithText(audience.label).performScrollTo().performClick()
-        if (audience == Audience.CHILD) compose.onNodeWithText("跳过引入").performClick()
         compose.waitUntil(5000) { !model().progress.state.value.loading && !model().observations.state.value.loading }
     }
 
@@ -57,7 +56,7 @@ class P5DraftNavigationTest {
     }
 
     private fun draft(audience: Audience) {
-        tab(if (audience == Audience.CHILD) "我的手帐" else "我的").performClick()
+        tab("我的").performClick()
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).performScrollTo().performTextInput(draftText)
         hideKeyboard()
@@ -139,7 +138,7 @@ class P5DraftNavigationTest {
         assertEquals(Audience.CHILD, model().controller.state.value.audience)
         screenshot("p5-mode-confirm", "放下草稿？")
         compose.onNodeWithText("继续记录").performClick()
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).assertTextContains(draftText)
         assertEquals(draftId, model().observations.state.value.draftId)
         assertEquals(saved, savedRecords(Audience.CHILD))
@@ -199,14 +198,14 @@ class P5DraftNavigationTest {
     @Test fun backToModeSelectionProtectsTheHiddenChildDraft() {
         enter(Audience.CHILD)
         draft(Audience.CHILD)
-        tab("问阿帛").performClick()
+        tab("对话").performClick()
         back()
         tab("探索").assertIsSelected()
         assertEquals(Audience.CHILD, model().controller.state.value.audience)
         back()
         compose.onNodeWithText("放下草稿？").assertIsDisplayed()
         compose.onNodeWithText("继续记录").performClick()
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).assertTextContains(draftText)
         tab("探索").performClick()
         back()
@@ -224,7 +223,7 @@ class P5DraftNavigationTest {
         back()
         compose.onNodeWithText("放下草稿？").assertIsDisplayed()
         compose.onNodeWithText("继续记录").performClick()
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).assertTextContains(draftText)
     }
 
@@ -253,10 +252,11 @@ class P5DraftNavigationTest {
     @Test fun childSourceEntryStartsAnObservationForItsRelic() {
         enter(Audience.CHILD)
         val progress = model().progress.state.value.progress
-        compose.onNodeWithText("文物与观察任务").performScrollTo().performClick()
+        compose.onNode(hasText("故事") and hasClickAction()).performClick()
+        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
         compose.onNodeWithText("文物与来源").performScrollTo().performClick()
         compose.onNodeWithContentDescription("记下${FirstChapter.relics.last().title}的观察").performScrollTo().performClick()
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         assertEquals(FirstChapter.relics.last().id, model().observations.state.value.relicId)
         assertEquals(progress, model().progress.state.value.progress)
         assertTrue(savedRecords(Audience.CHILD).isEmpty())
@@ -341,7 +341,7 @@ class P5DraftNavigationTest {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         compose.waitUntil(5000) { model().observations.state.value.editing && !model().observations.state.value.loading &&
             !model().progress.state.value.loading }
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         assertEquals(capture.draftId, model().observations.state.value.draftId)
         assertNull(model().observations.state.value.photo)
         assertEquals(capture.copy(result = "unavailable"), camera.pending())
@@ -425,7 +425,7 @@ class P5DraftNavigationTest {
         val (matchingTicket, matchingPhoto) = fixtureTicket()
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         compose.waitUntil(5000) { model().controller.state.value.audience == Audience.CHILD && model().observations.state.value.editing }
-        tab("我的手帐").assertIsSelected()
+        tab("我的").assertIsSelected()
         compose.onNodeWithText("跳过引入").assertDoesNotExist()
         assertEquals(matchingTicket, camera.pending())
         assertEquals(matchingPhoto, model().observations.state.value.photo)

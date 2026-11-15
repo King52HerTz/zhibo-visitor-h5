@@ -79,7 +79,10 @@ class StoryVideoTest {
         waitPlaying()
         lateinit var previous: VideoView
         compose.runOnIdle { previous = player()!! }
-        compose.onNodeWithText("跳过引入").performClick()
+        compose.onNodeWithText("故事").performClick()
+        compose.onNodeWithText("衣服里的秘密").performScrollTo().performClick()
+        compose.onNodeWithText("重看故事引入").performScrollTo().performClick()
+        compose.onNodeWithText("跳过引入").performScrollTo().performClick()
         compose.onNodeWithText("已进入探索").assertExists()
         compose.runOnIdle { assertFalse(previous.isPlaying); assertNull(player()) }
     }

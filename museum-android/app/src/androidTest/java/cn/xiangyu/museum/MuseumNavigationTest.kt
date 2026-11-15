@@ -49,85 +49,98 @@ class MuseumNavigationTest {
         server.close()
     }
 
-    @Test fun stickerNavigationSwitchesTabsAndRestoresSelection() {
+    private fun tab(label: String) = compose.onNode(hasText(label) and isSelectable())
+
+    @Test fun childModeOpensExhibitsAndRestoresSelectedTab() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
-        compose.onNode(hasText("探索") and hasClickAction()).assertIsSelected()
-        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick().assertIsSelected()
-        compose.onNodeWithText("比较两件衣服").assertExists()
-        compose.onNode(hasText("我的手帐") and hasClickAction()).performClick()
+        listOf("展品", "故事", "对话", "游戏", "我的").forEach { tab(it).assertIsDisplayed() }
+        tab("展品").assertIsSelected()
+        screenshot("zhibo-child-exhibits.png")
+        tab("故事").performClick().assertIsSelected()
+        compose.onNodeWithText("汉代的一天").assertIsDisplayed()
+        screenshot("zhibo-child-stories.png")
+        tab("对话").performClick().assertIsSelected()
+        compose.onNodeWithText("问文物").assertIsDisplayed()
+        tab("游戏").performClick().assertIsSelected()
+        compose.onNodeWithText("帛画寻宝").assertIsDisplayed()
+        screenshot("zhibo-child-games.png")
+        tab("我的").performClick()
         compose.activityRule.scenario.recreate()
-        compose.onNode(hasText("我的手帐") and hasClickAction()).assertIsSelected()
-        compose.onNodeWithText("我的旅行手帐").assertExists()
-        compose.onNode(hasText("探索") and hasClickAction()).performClick().assertIsSelected()
-        compose.onNodeWithText("今天，寄一封信给汉代").assertExists()
+        tab("我的").assertIsSelected()
+        compose.onNodeWithText("小小观展员").assertIsDisplayed()
+        screenshot("zhibo-child-mine.png")
     }
 
-    @Test fun childCanReadOfflineChapterAndSeeHonestAiState() {
+    @Test fun childGameAndCollectionPersistWithinTheAccount() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
-        compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("今天，寄一封信给汉代").assertExists()
-        compose.onNodeWithText("文物与观察任务").performScrollTo().performClick()
-        compose.onNodeWithText("文物与来源").performScrollTo().performClick()
+        compose.onNodeWithText("看看细节").performScrollTo().performClick()
+        compose.onNodeWithText("收藏展品").performScrollTo().performClick()
+        tab("游戏").performClick()
+        compose.onNodeWithText("开始找").performScrollTo().performClick()
+        compose.onNodeWithText("画面右上").performScrollTo().performClick()
+        compose.onNodeWithText("这里用圆形画出太阳。", substring = true).assertExists()
+        tab("我的").performClick()
+        compose.onNodeWithText("收藏文物").performScrollTo().performClick()
         compose.onNodeWithText("直裾素纱单衣").assertExists()
-        compose.onNodeWithText("问阿帛 · 本章").performScrollTo().performClick()
-        compose.onNodeWithText("比较两件衣服").assertExists()
+        compose.onNodeWithText("游戏进度").performScrollTo().performClick()
+        compose.onNodeWithText("帛画寻宝 · 已完成").assertExists()
     }
 
-    @Test fun adultModeUsesDifferentStoryAndCanSwitch() {
+    @Test fun adultModeOpensRelationshipTimelineAndSwitchesModes() {
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
-        compose.onNodeWithText("从一件衣服，走进汉代生活").assertExists()
-        compose.onNode(hasText("文物") and hasClickAction()).performClick()
-        compose.onNodeWithText("文物档案").assertIsDisplayed()
-        compose.onNodeWithText("我的手帐").assertDoesNotExist()
-        compose.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        File(instrumentation.targetContext.getExternalFilesDir(null), "experience-adult-relics.png").outputStream().use {
-            val bitmap = instrumentation.uiAutomation.takeScreenshot()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-            bitmap.recycle()
-        }
-        compose.onNode(hasText("故事") and hasClickAction()).performClick()
-        compose.onNodeWithText("开始阅读").performScrollTo().performClick()
-        compose.onNodeWithText("成人模式 · 切换模式").performScrollTo().performClick()
-        compose.onNodeWithText("今天，怎样出发？").assertExists()
+        listOf("展品", "图解", "对话", "年表", "我的").forEach { tab(it).assertIsDisplayed() }
+        tab("展品").assertIsSelected()
+        screenshot("zhibo-adult-exhibits.png")
+        tab("图解").performClick().assertIsSelected()
+        compose.onNodeWithText("历史图解").assertIsDisplayed()
+        screenshot("zhibo-adult-graph.png")
+        compose.onNodeWithText("问这件文物").performScrollTo().performClick()
+        tab("对话").assertIsSelected()
+        compose.onNodeWithText("T形帛画").assertIsDisplayed()
+        screenshot("zhibo-adult-chat.png")
+        tab("年表").performClick().assertIsSelected()
+        compose.onNodeWithText("历史年表").assertIsDisplayed()
+        screenshot("zhibo-adult-timeline.png")
+        tab("我的").performClick()
+        screenshot("zhibo-adult-mine.png")
+        compose.onNodeWithText("切换导览模式", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("选择导览模式").assertExists()
+        screenshot("zhibo-mode.png")
     }
 
-    @Test fun loginFormGatesModeSelectionAndUsesExistingTheme() {
+    @Test fun loginFormAuthenticatesWithConfiguredKnowledgeService() {
         compose.runOnUiThread { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout() }
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.authBusy }
         compose.onNodeWithText("儿童模式").assertDoesNotExist()
+        screenshot("zhibo-login.png")
         compose.onNode(hasSetTextAction() and hasText("账号")).performScrollTo().performTextInput("TEST_UI_USER")
         compose.onNode(hasSetTextAction() and hasText("密码")).performScrollTo().performTextInput("TEST_ONLY_PASSWORD")
-        compose.onNodeWithText("登录并开始旅行").performScrollTo().performClick()
+        compose.onNode(hasText("登录") and hasClickAction()).performScrollTo().performClick()
         compose.waitUntil(5000) { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.username == "TEST_UI_USER" }
-        compose.onNodeWithText("儿童模式").assertExists()
-        compose.onNodeWithText("已登录 · TEST_UI_USER").assertExists()
+        compose.onNodeWithText("选择导览模式").assertExists()
     }
 
-    @Test fun registrationTabsClearPasswordAndConnectionSettingsExpand() {
+    @Test fun registerActionClearsPasswordAndConnectionSettingsExpand() {
         compose.runOnUiThread { ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.logout() }
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.authBusy }
-        compose.onNodeWithText("登录并开始旅行").assertIsNotEnabled()
-        compose.onNode(hasSetTextAction() and hasText("服务地址")).assertDoesNotExist()
+        compose.onNode(hasText("登录") and hasClickAction()).assertIsNotEnabled()
+        compose.onNode(hasSetTextAction() and hasText("知识库服务地址")).assertDoesNotExist()
         compose.onNode(hasSetTextAction() and hasText("密码")).performScrollTo().performTextInput("TEST_ONLY_PASSWORD")
         compose.onNodeWithText("显示").performClick()
         compose.onNodeWithText("隐藏").assertExists()
-        compose.onNodeWithText("注册", substring = false).performScrollTo().performClick().assertIsSelected()
-        compose.onNodeWithText("注册并开始旅行").assertIsNotEnabled()
-        compose.onNodeWithText("连接设置", substring = true).performScrollTo().performClick()
-        compose.onNode(hasSetTextAction() and hasText("服务地址")).assertExists()
+        compose.onNode(hasText("注册账号") and hasClickAction()).performScrollTo().performClick()
+        compose.onNode(hasText("注册") and hasClickAction()).assertIsNotEnabled()
+        compose.onNode(hasText("连接设置") and hasClickAction()).performScrollTo().performClick()
+        compose.onNode(hasSetTextAction() and hasText("知识库服务地址")).assertExists()
         compose.onNodeWithText("收起连接设置").performScrollTo().performClick()
-        compose.onNode(hasSetTextAction() and hasText("服务地址")).assertDoesNotExist()
-        compose.onNodeWithText("登录", substring = false).performScrollTo().performClick().assertIsSelected()
-        compose.onNodeWithText("登录并开始旅行").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction() and hasText("知识库服务地址")).assertDoesNotExist()
+        compose.onNodeWithText("返回登录").performScrollTo().performClick()
+        compose.onNode(hasText("登录") and hasClickAction()).assertIsNotEnabled()
     }
 
     @Test fun chatShowsStreamReferencesAndClarificationWithoutResendingOnRecreate() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
-        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.onNode(hasText("对话") and hasClickAction()).performClick()
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
         compose.onNode(hasSetTextAction() and hasText("想问阿帛什么？")).assertIsDisplayed().performTextInput("介绍这件衣服")
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().performClick()
@@ -157,8 +170,7 @@ class MuseumNavigationTest {
 
     @Test fun keyboardSendProducesOneStreamRequestAndBlankDraftDoesNotResend() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
-        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.onNode(hasText("对话") and hasClickAction()).performClick()
         compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[MuseumViewModel::class.java].controller.state.value.chatBusy }
         compose.onNode(hasSetTextAction()).performTextInput("键盘发送的界面测试问题")
         compose.onNode(hasSetTextAction()).performImeAction()
@@ -175,8 +187,7 @@ class MuseumNavigationTest {
 
     @Test fun chatInputRemainsVisibleAboveTheRealKeyboard() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
-        compose.onNodeWithText("跳过引入").performClick()
-        compose.onNode(hasText("问阿帛") and hasClickAction()).performClick()
+        compose.onNode(hasText("对话") and hasClickAction()).performClick()
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
         val prompt = compose.onNodeWithText("比较两件衣服", useUnmergedTree = true).assertIsDisplayed()
         val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
@@ -193,7 +204,7 @@ class MuseumNavigationTest {
                 ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
         }
         compose.onNodeWithContentDescription("发送问题").assertIsDisplayed().assertIsEnabled()
-        compose.onNode(hasText("问阿帛") and hasClickAction()).assertDoesNotExist()
+        compose.onNode(hasText("对话") and hasClickAction()).assertDoesNotExist()
         compose.waitForIdle()
         android.os.SystemClock.sleep(500)
         screenshot("chat-real-keyboard.png")
@@ -201,7 +212,7 @@ class MuseumNavigationTest {
 
     @Test fun landscapeChatKeepsInputVisibleWithTheKeyboard() {
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
-        compose.onNode(hasText("讲解") and hasClickAction()).performClick()
+        compose.onNode(hasText("对话") and hasClickAction()).performClick()
         compose.runOnUiThread { compose.activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
         compose.waitUntil(5000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
         compose.onNode(hasSetTextAction()).performClick().performTextInput("材料有哪些线索？")
@@ -225,7 +236,7 @@ class MuseumNavigationTest {
             compose.waitUntil(5000) { runCatching {
                 compose.onNodeWithText("历史会话").assertIsDisplayed()
                 compose.onNodeWithText("新对话").assertIsDisplayed()
-                compose.onNode(hasText("讲解") and hasClickAction()).assertIsDisplayed()
+                compose.onNode(hasText("对话") and hasClickAction()).assertIsDisplayed()
                 true
             }.getOrDefault(false) }
         } finally {

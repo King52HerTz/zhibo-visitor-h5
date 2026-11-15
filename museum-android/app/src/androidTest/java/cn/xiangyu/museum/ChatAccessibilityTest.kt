@@ -105,7 +105,6 @@ class ChatAccessibilityTest {
         compose.waitUntil(5000) { model().controller.state.value.username == username }
         compose.waitUntil(5000) { compose.onAllNodesWithText("儿童模式").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(audience.label).performScrollTo().performClick()
-        if (audience == Audience.CHILD) compose.onNodeWithText("跳过引入").performClick()
         compose.waitUntil(5000) { !model().progress.state.value.loading && !model().observations.state.value.loading &&
             !model().controller.state.value.chatBusy }
     }
@@ -162,7 +161,7 @@ class ChatAccessibilityTest {
             assertTrue("保留问题应能通过无障碍点击完成", it.performAction(AccessibilityNodeInfo.ACTION_CLICK))
         }
         compose.waitUntil(5000) { compose.onAllNodesWithText("问题还没发送").fetchSemanticsNodes().isEmpty() }
-        tab(if (audience == Audience.CHILD) "问阿帛" else "讲解").assertIsSelected()
+        tab("对话").assertIsSelected()
         assertEquals(question, model().controller.state.value.draft)
         assertEquals(audience, model().controller.state.value.audience)
         assertEquals(username, model().controller.state.value.username)
@@ -234,7 +233,7 @@ class ChatAccessibilityTest {
 
     @Test fun childQuestionConfirmationExposesHeadingPaneAndAccessibleActions() {
         login(Audience.CHILD)
-        tab("问阿帛").performClick()
+        tab("对话").performClick()
         compose.onNode(hasSetTextAction()).performTextInput(question)
         hideKeyboard()
         compose.onNode(hasText("切换模式", substring = true) and hasClickAction()).performClick()
