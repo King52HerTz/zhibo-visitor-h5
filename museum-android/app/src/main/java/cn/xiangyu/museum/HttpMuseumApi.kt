@@ -75,8 +75,12 @@ class HttpMuseumApi : MuseumApi, MuseumProgressApi, AutoCloseable {
         }
     }
 
-    override suspend fun sessions(login: LoginSession, audience: Audience): List<ChatSessionInfo> =
+    override suspend fun sessions(login: LoginSession, audience: Audience): List<ChatSessionInfo> = try {
         json(login, "/mobile/sessions?audience=${audience.apiValue}").getJSONArray("sessions").objects().map(::sessionInfo)
+    } catch (error: ApiFailure) {
+        if (error.status == 404) throw ApiFailure(404, "这个知识库服务尚未部署移动对话接口，请核对服务地址。")
+        throw error
+    }
 
     override suspend fun createSession(login: LoginSession, audience: Audience, exhibitId: String?): ChatSessionInfo =
         sessionInfo(json(login, "/mobile/sessions", JSONObject().put("audience", audience.apiValue)

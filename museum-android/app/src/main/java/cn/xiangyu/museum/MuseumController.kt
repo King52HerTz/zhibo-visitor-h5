@@ -18,7 +18,7 @@ data class MuseumState(
     val sessions: List<ChatSessionInfo> = emptyList(), val session: ChatSessionInfo? = null,
     val exhibitId: String? = null, val messages: List<ChatLine> = emptyList(),
     val chatBusy: Boolean = false, val status: String = "", val draft: String = "",
-    val needsRefresh: Boolean = false
+    val needsRefresh: Boolean = false, val exhibitContextName: String? = null
 )
 
 class MuseumController(private val api: MuseumApi, private val vault: TokenVault,
@@ -84,7 +84,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
             val address = serviceEndpoint(endpoint, debug)
             if (username.isBlank() || password.isBlank() || (register && password.trim().length < 8))
                 throw ApiFailure(message = "请填写账号和密码；注册密码至少8位")
-            val authenticated = api.authenticate(address, username.trim(), password.trim(), register)
+            val authenticated = api.authenticate(address, username.trim(), password, register)
             vault.save(authenticated)
             if (ticket == generation) {
                 login = authenticated
@@ -108,36 +108,43 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
     fun chooseMode() {
         progress?.bind(null, null)
         mutable.update { it.copy(audience = null, session = null, sessions = emptyList(),
-            messages = emptyList(), draft = "", chatBusy = false, error = null, needsRefresh = false) }
+            messages = emptyList(), draft = "", chatBusy = false, error = null, needsRefresh = false,
+            exhibitId = null, exhibitContextName = null) }
         replace { }
     }
 
     fun selectAudience(audience: Audience) {
         progress?.bind(login, audience)
         mutable.update { it.copy(audience = audience, exhibitId = null, session = null,
-            sessions = emptyList(), messages = emptyList(), draft = "", error = null, needsRefresh = false, chatBusy = false) }
+            sessions = emptyList(), messages = emptyList(), draft = "", error = null, needsRefresh = false, chatBusy = false,
+            exhibitContextName = null) }
         loadConversation()
     }
 
-    fun selectExhibit(exhibitId: String?) {
+    fun selectExhibit(exhibitId: String?) = selectExhibit(exhibitId, null)
+
+    fun selectExhibit(exhibitId: String?, contextName: String?) {
         if (exhibitId != null && FirstChapter.relics.none { it.id == exhibitId }) return
-        mutable.update { it.copy(exhibitId = exhibitId, session = null, messages = emptyList(), draft = "", chatBusy = false) }
-        loadConversation()
+        mutable.update { it.copy(exhibitId = exhibitId, exhibitContextName = contextName, session = null,
+            messages = emptyList(), draft = "", chatBusy = false) }
+        loadConversation(new = contextName != null)
     }
 
     fun loadConversation(selected: ChatSessionInfo? = null, new: Boolean = false) {
         val identity = login ?: return
         val audience = state.value.audience ?: return
         val exhibit = state.value.exhibitId
+        val hasContext = state.value.exhibitContextName != null
         val current = selected ?: state.value.session
         mutable.update { it.copy(chatBusy = true, error = null, status = "正在读取会话") }
         replace { ticket ->
             val sessions = api.sessions(identity, audience)
             val session = if (new) null else sessions.firstOrNull { it.id == current?.id }
-                ?: sessions.firstOrNull { it.exhibitId == exhibit }
+                ?: sessions.firstOrNull { !hasContext && it.exhibitId == exhibit }
             val messages = if (session == null) emptyList() else api.messages(identity, audience, session)
             if (ticket == generation) mutable.update { it.copy(sessions = sessions, session = session,
-                exhibitId = if (session != null) session.exhibitId else exhibit, messages = messages,
+                exhibitId = if (session != null) session.exhibitId else exhibit,
+                exhibitContextName = if (selected != null) null else it.exhibitContextName, messages = messages,
                 chatBusy = false, status = "", needsRefresh = false) }
         }
     }
@@ -150,7 +157,9 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
         val audience = before.audience ?: return
         val text = (option ?: before.draft).trim()
         if (before.chatBusy || before.needsRefresh || text.isEmpty()) return
-        mutable.update { it.copy(chatBusy = true, draft = "", error = null, status = "正在连接阿帛") }
+        val contextPrefix = before.exhibitContextName?.let { "关于展品「$it」：" }.orEmpty()
+        val requestText = contextPrefix + text.take(8000 - contextPrefix.length)
+        mutable.update { it.copy(chatBusy = true, draft = "", error = null, status = "正在检索知识库") }
         replace { ticket ->
             var sent = false
             try {
@@ -159,7 +168,7 @@ class MuseumController(private val api: MuseumApi, private val vault: TokenVault
                 mutable.update { it.copy(session = session, sessions = listOf(session) + it.sessions.filter { saved -> saved.id != session.id },
                     messages = it.messages + listOf(ChatLine(true, text), ChatLine(false, "", incomplete = true))) }
                 sent = true
-                api.stream(identity, audience, session, text) { event ->
+                api.stream(identity, audience, session, requestText) { event ->
                     mutable.update { current ->
                         if (ticket != generation || !current.chatBusy) current else {
                             val last = current.messages.lastOrNull() ?: return@update current

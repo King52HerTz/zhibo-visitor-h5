@@ -1,5 +1,11 @@
 package cn.xiangyu.museum
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -32,10 +38,15 @@ import androidx.compose.ui.unit.dp
 fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?) -> Unit,
                 onStop: () -> Unit, onReload: () -> Unit, onNew: () -> Unit,
                 onSession: (ChatSessionInfo) -> Unit, onExhibit: (String?) -> Unit,
-                modifier: Modifier = Modifier, onMode: (() -> Unit)? = null) {
+                modifier: Modifier = Modifier, onMode: (() -> Unit)? = null,
+                openHistory: Boolean = false, onHistoryShown: () -> Unit = {}) {
     var showSessions by remember { mutableStateOf(false) }
+    LaunchedEffect(openHistory) {
+        if (openHistory) { showSessions = true; onHistoryShown() }
+    }
     val child = state.audience == Audience.CHILD
-    val subject = FirstChapter.relics.firstOrNull { it.id == state.exhibitId }?.title ?: "博物馆主题"
+    val subject = state.exhibitContextName
+        ?: FirstChapter.relics.firstOrNull { it.id == state.exhibitId }?.title ?: "博物馆主题"
     val hasFeedback = state.status.isNotBlank() || state.error != null || state.needsRefresh
     val lastItem = (if (state.messages.isEmpty()) 1 else state.messages.lastIndex) + if (hasFeedback) 1 else 0
     val list = rememberLazyListState()
@@ -64,7 +75,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
             if (compact) {
                 FlowRow(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(Space.small), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(if (child) "问阿帛" else "文物讲解", style = MaterialTheme.typography.titleSmall,
+                    Text(if (child) "问文物" else "AI 讲解", style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.align(Alignment.CenterVertically).semantics { heading() })
                     Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f).align(Alignment.CenterVertically), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -77,13 +88,11 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
             } else Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = Space.small)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Image(painterResource(R.drawable.abo), null,
+                        Image(painterResource(R.drawable.zhibo_seal), null,
                             Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
                         Column(Modifier.weight(1f)) {
-                            Text(if (child) "问阿帛" else "文物讲解", style = MaterialTheme.typography.titleLarge,
+                            Text(if (child) "问文物" else "AI 讲解", style = MaterialTheme.typography.titleLarge,
                                 modifier = Modifier.semantics { heading() })
-                            Text(if (child) "你的文物旅行伙伴" else "从史料与文物中，读懂历史",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
                     }
@@ -123,7 +132,9 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                         }
                     } else itemsIndexed(state.messages) { index, line ->
                         ChatBubble(line, { followLatest = true; onSend(it) }, enabled = index == state.messages.lastIndex &&
-                            !state.chatBusy && !state.needsRefresh, author = if (child) "阿帛" else "湘遇讲解")
+                            !state.chatBusy && !state.needsRefresh, author = "智博讲解员")
+                        if (child && !line.human && !line.incomplete && line.text.isNotBlank() && index == state.messages.lastIndex)
+                            GuideNarration(line.text, "听回答")
                     }
                     if (hasFeedback) item {
                         val errorOnly = state.error != null && !state.needsRefresh
@@ -199,7 +210,7 @@ private fun ChatWelcome(child: Boolean, compact: Boolean, exhibitId: String?, di
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
                     Text(if (child) "你好，我是阿帛" else "从文物开始聊", modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall)
-                    Image(painterResource(R.drawable.abo), null, Modifier.width(40.dp).height(56.dp))
+                    Image(painterResource(R.drawable.zhibo_seal), null, Modifier.width(40.dp).height(56.dp))
                 }
             } else Row(Modifier.padding(Space.large), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.small)) {
@@ -207,7 +218,7 @@ private fun ChatWelcome(child: Boolean, compact: Boolean, exhibitId: String?, di
                     Text(if (child) "带着好奇来问我吧。\n我们一起找找文物里的线索。" else "聊聊材料、工艺和历史背景。\n也可以从两件文物的比较开始。",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Image(painterResource(R.drawable.abo), null, Modifier.width(88.dp).height(128.dp))
+                Image(painterResource(R.drawable.zhibo_seal), null, Modifier.width(88.dp).height(128.dp))
             }
         }
         if (!compact) Text("从一个问题开始", style = MaterialTheme.typography.titleSmall,
@@ -243,12 +254,28 @@ private fun ChatWelcome(child: Boolean, compact: Boolean, exhibitId: String?, di
 @Composable
 private fun ChatComposer(state: MuseumState, child: Boolean, compact: Boolean, onDraft: (String) -> Unit,
                          onSend: () -> Unit, onStop: () -> Unit) {
+    var speechUnavailable by remember { mutableStateOf(false) }
+    val recognize = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && !state.chatBusy)
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let(onDraft)
+    }
     val canSend = !state.chatBusy && !state.needsRefresh && state.draft.isNotBlank()
     val prompt = if (child) "想问阿帛什么？" else "想了解什么？"
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = if (compact) 4.dp else Space.medium),
             verticalArrangement = Arrangement.spacedBy(Space.small)) {
+            if (speechUnavailable) Text("这台设备暂不支持语音输入，可以用键盘提问。", style = MaterialTheme.typography.bodySmall)
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.small)) {
+                if (!compact) IconButton(onClick = {
+                    speechUnavailable = false
+                    try {
+                        recognize.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN"))
+                    } catch (_: ActivityNotFoundException) { speechUnavailable = true }
+                }, enabled = !state.chatBusy && !state.needsRefresh) {
+                    Image(painterResource(R.drawable.zhibo_mic), "语音输入", Modifier.size(25.dp))
+                }
                 OutlinedTextField(state.draft, onDraft, modifier = Modifier.weight(1f).semantics {
                     if (compact) contentDescription = prompt
                 }, enabled = !state.chatBusy,
