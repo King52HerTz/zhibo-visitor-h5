@@ -47,8 +47,8 @@ internal fun GuideNav(audience: Audience, current: GuideTab, onSelect: (GuideTab
                         Image(painterResource(tab.art), null, Modifier.size(if (tab == GuideTab.CHAT) 34.dp else 30.dp))
                     },
                     label = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(tab.label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(tab.label, Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                             if (selected) HorizontalDivider(Modifier.width(24.dp).padding(top = 2.dp),
                                 color = MaterialTheme.colorScheme.primary)
                         }

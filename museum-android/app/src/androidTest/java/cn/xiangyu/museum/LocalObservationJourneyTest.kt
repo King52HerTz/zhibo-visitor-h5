@@ -58,7 +58,7 @@ class LocalObservationJourneyTest {
         labels.forEach { label ->
             val item = compose.onNode(hasText(label) and hasClickAction()).assertIsDisplayed().fetchSemanticsNode()
             val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText(label, useUnmergedTree = true)
+            compose.onNode(hasText(label) and hasAnyAncestor(isSelectable()), useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> assertTrue(action(layouts)) }
             val layout = layouts.single()
             val measurement = "size=${layout.size}, paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}, " +
@@ -151,7 +151,7 @@ class LocalObservationJourneyTest {
     @Test fun systemCameraCancellationReturnsToTheSameTextDraft() {
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
         compose.onNode(hasText("我的") and hasClickAction()).performClick()
-        compose.onNodeWithText("观展手帐").performScrollTo().performClick()
+        compose.onNodeWithText("观展笔记").performScrollTo().performClick()
         compose.waitUntil(5000) { !model().observations.state.value.loading }
         compose.onNodeWithText("新建观察记录").performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("我的发现")).performScrollTo()
