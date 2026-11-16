@@ -70,7 +70,7 @@ fun MuseumApp(controller: MuseumController, modifier: Modifier = Modifier, progr
     var splash by rememberSaveable { mutableStateOf(true) }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Image(painterResource(R.drawable.zhibo_paper), null, Modifier.matchParentSize(),
-            contentScale = ContentScale.Crop, alpha = .44f)
+            contentScale = ContentScale.Crop, alpha = .15f)
         if (splash) BrandSplash { splash = false }
         else key(state.endpoint, state.username) {
             MuseumPages(state, controller, modifier, progress, progressController, observationController, onCamera)
@@ -86,6 +86,12 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     val mode = state.audience?.name.orEmpty()
     var tab by rememberSaveable(mode) { mutableStateOf(GuideTab.EXHIBITS) }
     var exhibitId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
+    var exhibitOrigin by rememberSaveable(mode) { mutableStateOf(GuideTab.EXHIBITS) }
+    val exhibitState = key(mode) { androidx.compose.runtime.saveable.rememberSaveableStateHolder() }
+    fun closeExhibit() {
+        exhibitId = null
+        tab = exhibitOrigin
+    }
     var storyId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
     var gameId by rememberSaveable(mode) { mutableStateOf<String?>(null) }
     var showHistory by rememberSaveable(mode) { mutableStateOf(false) }
@@ -187,7 +193,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             taskId != null -> taskId = null
             sources -> sources = false
             chapter -> chapter = false
-            tab == GuideTab.EXHIBITS && exhibitId != null -> exhibitId = null
+            tab == GuideTab.EXHIBITS && exhibitId != null -> closeExhibit()
             tab == GuideTab.STORIES && storyId != null -> storyId = null
             tab == GuideTab.GAMES && gameId != null -> gameId = null
             tab != GuideTab.EXHIBITS -> { controller?.stop(); tab = GuideTab.EXHIBITS }
@@ -216,6 +222,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
     }
     fun openExhibit(exhibit: GuideExhibit) {
         library?.open(exhibit)
+        exhibitOrigin = tab
         exhibitId = exhibit.id
         tab = GuideTab.EXHIBITS
     }
@@ -231,7 +238,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
         tab = chatTab
     }
     Scaffold(modifier = modifier.imePadding(), containerColor = Color.Transparent, bottomBar = {
-        if (audience != null && !(tab == chatTab && keyboardVisible)) GuideNav(audience, tab) { next ->
+        if (audience != null && !keyboardVisible && !(tab == GuideTab.EXHIBITS && exhibitId != null)) GuideNav(audience, tab) { next ->
             if (tab == chatTab && next != chatTab) controller?.stop()
             if (tab != next) {
                 chapter = false; sources = false; taskId = null
@@ -256,9 +263,11 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             return@Scaffold
         }
         if (audience != null && library != null && tab == GuideTab.EXHIBITS) {
-            ExhibitPage(audience, guideExhibits.firstOrNull { it.id == exhibitId }, exhibitId in library.saved,
-                observation?.busy != true, ::openExhibit, { exhibitId = null }, ::askExhibit, library::toggle,
-                ::openObservation, { requestIdentityExit(DraftIdentityExit.MODE) }, Modifier.padding(padding))
+            exhibitState.SaveableStateProvider("collection") {
+                ExhibitPage(audience, guideExhibits.firstOrNull { it.id == exhibitId }, exhibitId in library.saved,
+                    observation?.busy != true, ::openExhibit, ::closeExhibit, ::askExhibit, library::toggle,
+                    ::openObservation, { requestIdentityExit(DraftIdentityExit.MODE) }, Modifier.padding(padding))
+            }
             return@Scaffold
         }
         Column(modifier = Modifier.padding(padding).fillMaxSize()
@@ -337,7 +346,6 @@ private fun ChapterContent(audience: Audience, onTask: (ObservationTask) -> Unit
     }
     Text(if (audience == Audience.CHILD) "观察邀请：看看衣料，再找找像枝叶的纹样。不用记年份，也不用触摸文物。" else
         "故事下一站：服饰留下材料与工艺的线索，餐具则把我们带向饮食与待客。", style = MaterialTheme.typography.bodyLarge)
-    Text("内容审稿版 · 精确馆藏条目及真实图片许可待补。当前不展示文物实拍。", style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable

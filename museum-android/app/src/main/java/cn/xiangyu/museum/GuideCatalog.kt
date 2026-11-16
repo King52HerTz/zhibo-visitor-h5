@@ -3,7 +3,10 @@ package cn.xiangyu.museum
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +25,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -29,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,23 +62,32 @@ else listOf(GuideTab.EXHIBITS, GuideTab.GRAPH, GuideTab.CHAT, GuideTab.TIMELINE,
 @Composable
 internal fun GuideNav(audience: Audience, current: GuideTab, onSelect: (GuideTab) -> Unit) {
     Column {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))
         NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
             guideTabs(audience).forEach { tab ->
                 val selected = tab == current
                 NavigationBarItem(selected = selected, onClick = { onSelect(tab) },
                     icon = {
-                        Image(painterResource(tab.art), null, Modifier.size(if (tab == GuideTab.CHAT) 34.dp else 30.dp))
+                        val ink = if (selected || tab == GuideTab.CHAT) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        val filter = remember(ink) {
+                            // Convert the pale paper in the raster glyphs to alpha while keeping the ink edges.
+                            ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
+                                0f, 0f, 0f, 0f, ink.red * 255,
+                                0f, 0f, 0f, 0f, ink.green * 255,
+                                0f, 0f, 0f, 0f, ink.blue * 255,
+                                0f, 0f, -2.5f, 2.5f, -190f
+                            )))
+                        }
+                        Image(painterResource(tab.art), null, Modifier.size(if (tab == GuideTab.CHAT) 30.dp else 26.dp),
+                            colorFilter = filter)
                     },
                     label = {
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(tab.label, Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-                            if (selected) HorizontalDivider(Modifier.width(24.dp).padding(top = 2.dp),
-                                color = MaterialTheme.colorScheme.primary)
-                        }
+                        Text(tab.label, Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center)
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = MaterialTheme.colorScheme.surface,
+                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
                         selectedTextColor = MaterialTheme.colorScheme.primary))
             }
         }
@@ -81,7 +102,7 @@ internal fun GuideHeader(audience: Audience, modeEnabled: Boolean, onMode: () ->
         Text("智博导览", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         OutlinedButton(onClick = onMode, enabled = modeEnabled,
             modifier = Modifier.semantics { contentDescription = "切换导览模式" },
-            contentPadding = PaddingValues(horizontal = 12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
+            contentPadding = PaddingValues(horizontal = 12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Text(audience.label, color = MaterialTheme.colorScheme.primary)
         }
     }
@@ -164,89 +185,112 @@ internal fun ExhibitPage(audience: Audience, selected: GuideExhibit?, saved: Boo
     val scroll = rememberLazyListState()
     if (selected != null) {
         key(selected.id) {
-            Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExhibitDetail(selected, audience, saved, onBack, { onAsk(selected) }, { onSave(selected) }, onNote)
-            }
+            ExhibitDetail(selected, audience, saved, onBack, { onAsk(selected) }, { onSave(selected) }, onNote, modifier)
         }
         return
     }
-    val featured = if (child) museumCollection.first() else museumCollection[1]
-    val showFeature = query.isBlank() && category == "全部"
-    val results = museumCollection.filter { exhibit ->
-        (!showFeature || exhibit != featured) && (category == "全部" || exhibit.category == category) &&
-            listOf(exhibit.name, exhibit.period, exhibit.category, exhibit.origin.orEmpty()).any { query.trim() in it }
+    val focus = LocalFocusManager.current
+    val featured = museumCollection.first { it.id == if (child) "silk-plain-straight" else "min-fanglei" }
+    val term = query.trim()
+    val browsing = term.isEmpty() && category == "全部"
+    val results = remember(term, category, featured) {
+        museumCollection.filter { exhibit ->
+            (!browsing || exhibit != featured) && (category == "全部" || exhibit.category == category) &&
+                listOf(exhibit.name, exhibit.period, exhibit.category, exhibit.origin.orEmpty()).any { term in it }
+        }
     }
-    LazyColumn(modifier.fillMaxSize(), state = scroll, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { GuideHeader(audience, modeEnabled, onMode) }
-        item {
-            Text("湖南博物院", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            GuideTitle(if (child) "看文物" else "馆藏展品")
-        }
-        item { MuseumField(query, { query = it }, "搜索文物、年代或类别") }
-        item {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (listOf("全部") + museumCollection.map { it.category }.distinct()).forEach {
-                    FilterChip(category == it, { category = it }, label = { Text(it) })
-                }
+    val collections = remember { listOf("全部") + museumCollection.map { it.category }.distinct() }
+    val coverHeight = if (LocalConfiguration.current.screenHeightDp < 720) 115.dp else 144.dp
+
+    LazyColumn(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), state = scroll,
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item("masthead") { GuideHeader(audience, modeEnabled, onMode) }
+        item("title") {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("湖南博物院", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium,
+                    letterSpacing = 2.sp)
+                GuideTitle(if (child) "看文物" else "馆藏展品")
             }
         }
-        if (showFeature) item {
-            OutlinedCard(onClick = { onOpen(featured) }, modifier = Modifier.fillMaxWidth()) {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val copy: @Composable (Modifier) -> Unit = { labelModifier ->
-                        Column(labelModifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(if (child) "素纱单衣" else featured.name, style = MaterialTheme.typography.titleLarge)
-                            Text(if (child) "这件衣服为什么这么轻？" else "西汉 · 马王堆一号汉墓",
-                                style = MaterialTheme.typography.bodyMedium)
-                            GuideAction(if (child) "看看细节" else "查看档案", { onOpen(featured) },
-                                Modifier.fillMaxWidth(), end = "›")
-                        }
-                    }
-                    val art: @Composable (Modifier) -> Unit = { artModifier ->
-                        Surface(artModifier, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                            Image(painterResource(featured.art), featured.name,
-                                Modifier.fillMaxWidth().height(180.dp), contentScale = ContentScale.Fit)
-                        }
-                    }
-                    if (!child && maxWidth >= 280.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.4f) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            art(Modifier.width(112.dp))
-                            copy(Modifier.weight(1f))
-                        }
-                    } else {
-                        Column {
-                            art(Modifier.fillMaxWidth())
-                            copy(Modifier.fillMaxWidth())
+        item("search") {
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text("搜索文物、年代或类别") }, shape = RoundedCornerShape(9.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    unfocusedBorderColor = Color.Transparent),
+                trailingIcon = if (query.isEmpty()) null else {
+                    { TextButton({ query = "" }) { Text("清除") } }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }))
+        }
+        item("categories") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                collections.forEach { label ->
+                    val selectedCategory = category == label
+                    Surface(selected = selectedCategory, onClick = { category = label; focus.clearFocus() },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (selectedCategory) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = if (selectedCategory) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant) {
+                        Box(Modifier.heightIn(min = 34.dp).padding(horizontal = 9.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center) {
+                            Text(label, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
             }
         }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (showFeature) "馆藏精选" else "搜索结果", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                Text("${results.size + if (showFeature) 1 else 0} 件", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (browsing) item("feature") {
+            Surface(onClick = { focus.clearFocus(); onOpen(featured) }, shape = RoundedCornerShape(12.dp),
+                color = if (child) Color(0xFF100E13) else Color(0xFF211815)) {
+                Column {
+                    Image(painterResource(featured.art), null, Modifier.fillMaxWidth().height(coverHeight).padding(top = 7.dp),
+                        contentScale = ContentScale.Fit)
+                    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(featured.period, color = Color(0xFFEAD8BE), style = MaterialTheme.typography.labelMedium)
+                            Text(featured.name, color = Color(0xFFFFF8EC), style = MaterialTheme.typography.titleLarge)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(if (child) "看看细节" else "查看档案", color = Color(0xFFFFF8EC),
+                                style = MaterialTheme.typography.labelMedium)
+                            Text("›", color = Color(0xFFEAD8BE), modifier = Modifier.semantics { hideFromAccessibility() })
+                        }
+                    }
+                }
             }
         }
-        if (results.isEmpty()) item {
-            MuseumNotice("没有找到相关展品。可以换个名称查找，或查看全部馆藏。")
-            GuideAction("查看全部", { query = ""; category = "全部" }, secondary = true)
+        item("result-heading") {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (browsing) "馆藏目录" else "搜索结果", Modifier.weight(1f).semantics { heading() },
+                    style = MaterialTheme.typography.titleLarge)
+                Text("${results.size + if (browsing) 1 else 0} 件", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (results.isEmpty()) item("no-results") {
+            Text("没有找到相关展品。试试文物名称、朝代或材质类别。", style = MaterialTheme.typography.bodyMedium)
+            GuideAction("查看全部", { query = ""; category = "全部"; focus.clearFocus() }, secondary = true)
         }
         items(results.chunked(2), key = { it.first().id }) { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { exhibit ->
-                    OutlinedCard(onClick = { onOpen(exhibit) }, modifier = Modifier.weight(1f)) {
-                        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                            Image(painterResource(exhibit.art), null, Modifier.fillMaxWidth().height(114.dp).padding(6.dp),
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                        .clickable(role = Role.Button) { focus.clearFocus(); onOpen(exhibit) }) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(1.18f).clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                            Image(painterResource(exhibit.art), null, Modifier.matchParentSize().padding(7.dp),
                                 contentScale = ContentScale.Fit)
                         }
-                        Column(Modifier.padding(10.dp)) {
-                            Text(exhibit.name, style = MaterialTheme.typography.titleSmall)
-                            Text("${exhibit.period} · ${exhibit.category}", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(exhibit.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.semantics { hideFromAccessibility() })
                         }
+                        Text("${exhibit.period} · ${exhibit.category}", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
@@ -257,46 +301,67 @@ internal fun ExhibitPage(audience: Audience, selected: GuideExhibit?, saved: Boo
 
 @Composable
 private fun ExhibitDetail(exhibit: GuideExhibit, audience: Audience, saved: Boolean,
-                          onBack: () -> Unit, onAsk: () -> Unit, onSave: () -> Unit, onNote: ((Relic) -> Unit)?) {
+                          onBack: () -> Unit, onAsk: () -> Unit, onSave: () -> Unit, onNote: ((Relic) -> Unit)?,
+                          modifier: Modifier) {
     var fullImage by rememberSaveable { mutableStateOf(false) }
     val collection = exhibit.collection
-    GuideAction("返回展品", onBack, secondary = true)
-    GuideTitle(exhibit.name)
-    Text(listOf(exhibit.period, exhibit.category).filter(String::isNotBlank).joinToString(" · "),
-        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painterResource(exhibit.art), exhibit.name, Modifier.fillMaxWidth().height(250.dp),
-                contentScale = ContentScale.Fit)
-            GuideAction("看大图", { fullImage = true }, secondary = true)
+    val child = audience == Audience.CHILD
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.Center) {
+            TextButton(onBack, Modifier.heightIn(min = 48.dp)) {
+                Text("‹", Modifier.padding(end = 6.dp))
+                Text("返回展品")
+            }
+            FilledTonalButton(onSave, Modifier.heightIn(min = 48.dp)) {
+                Text(if (saved) "取消收藏" else "收藏展品")
+            }
         }
-    }
-    Text(collection?.imageLabel ?: "文物示意图", style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (audience == Audience.ADULT) {
-        OutlinedCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("馆藏档案", style = MaterialTheme.typography.titleMedium)
-                listOfNotNull(collection?.let { "材质" to it.material }, exhibit.origin?.let { "出土" to it },
-                    collection?.let { "收藏" to "湖南博物院" }).forEach { (label, value) ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(label, color = MaterialTheme.colorScheme.primary)
-                        Text(value, Modifier.weight(1f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            Box(Modifier.fillMaxWidth().height(250.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                Image(painterResource(exhibit.art), exhibit.name, Modifier.matchParentSize().padding(12.dp),
+                    contentScale = ContentScale.Fit)
+                FilledTonalButton({ fullImage = true }, Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
+                    Text("看大图")
+                }
+            }
+            Column(Modifier.padding(horizontal = 22.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(listOf(exhibit.period, exhibit.category).filter(String::isNotBlank).joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                GuideTitle(exhibit.name)
+                val caption = collection?.imageLabel ?: "文物示意图"
+                if (caption != "展品图像") Text(caption, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text(if (child) "仔细看看" else "文物解读", style = MaterialTheme.typography.titleLarge)
+                Text(if (child) exhibit.child else exhibit.adult, style = MaterialTheme.typography.bodyLarge)
+                collection?.let { MuseumNotice(it.observation) }
+                if (!child && collection != null) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text("馆藏档案", style = MaterialTheme.typography.titleLarge)
+                    listOfNotNull("材质" to collection.material, exhibit.origin?.let { "出土" to it },
+                        "收藏" to "湖南博物院").forEach { (label, value) ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(value, Modifier.weight(1f))
+                        }
                     }
+                }
+                if (onNote != null) FirstChapter.relics.firstOrNull { it.id == exhibit.id }?.let { relic ->
+                    GuideAction("记下观察", { onNote(relic) }, Modifier.fillMaxWidth()
+                        .semantics { contentDescription = "记下${relic.title}的观察" }, secondary = true)
+                }
+                collection?.let {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    CollectionCredit(it)
                 }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        GuideAction("问问这件文物", onAsk, Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), end = "›")
     }
-    Text(if (audience == Audience.CHILD) "仔细看看" else "文物解读", style = MaterialTheme.typography.titleLarge)
-    Text(if (audience == Audience.CHILD) exhibit.child else exhibit.adult, style = MaterialTheme.typography.bodyLarge)
-    collection?.let { MuseumNotice(it.observation) }
-    GuideAction("问问这件文物", onAsk, Modifier.fillMaxWidth(), end = "›")
-    GuideAction(if (saved) "取消收藏" else "收藏展品", onSave, Modifier.fillMaxWidth(), secondary = true)
-    if (onNote != null) FirstChapter.relics.firstOrNull { it.id == exhibit.id }?.let { relic ->
-        GuideAction("记下观察", { onNote(relic) }, Modifier.fillMaxWidth()
-            .semantics { contentDescription = "记下${relic.title}的观察" }, secondary = true)
-    }
-    collection?.let { CollectionCredit(it) }
     if (fullImage) ExhibitImageDialog(exhibit) { fullImage = false }
 }
 

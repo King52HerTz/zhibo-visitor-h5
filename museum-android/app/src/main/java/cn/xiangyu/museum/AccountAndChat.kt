@@ -78,6 +78,7 @@ internal fun BrandLockup(modifier: Modifier = Modifier, sealSize: Int = 56) {
 
 @Composable
 internal fun ModeSelection(enabled: Boolean, onSelect: (Audience) -> Unit, onLogout: () -> Unit) {
+    val illustrationSize = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 52.dp else 84.dp
     BrandLockup(Modifier.fillMaxWidth().padding(vertical = Space.medium))
     Text("选择导览模式", Modifier.fillMaxWidth().semantics { heading() },
         style = MaterialTheme.typography.headlineLarge,
@@ -88,7 +89,7 @@ internal fun ModeSelection(enabled: Boolean, onSelect: (Audience) -> Unit, onLog
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Image(painterResource(if (child) R.drawable.zhibo_child_mode else R.drawable.zhibo_adult_mode),
-                    null, Modifier.size(84.dp), contentScale = ContentScale.Fit)
+                    null, Modifier.size(illustrationSize), contentScale = ContentScale.Fit)
                 Column(Modifier.weight(1f)) {
                     Text(audience.label, style = MaterialTheme.typography.titleLarge)
                     Text(if (child) "听文物故事，轻松看展" else "读懂文物与历史背景",
