@@ -77,13 +77,15 @@ class MuseumNavigationTest {
         compose.onNodeWithText("收藏展品").performScrollTo().performClick()
         tab("游戏").performClick()
         compose.onNodeWithText("开始找").performScrollTo().performClick()
-        compose.onNodeWithText("画面右上").performScrollTo().performClick()
-        compose.onNodeWithText("这里用圆形画出太阳。", substring = true).assertExists()
+        (1..3).forEach { marker ->
+            compose.onNodeWithContentDescription("标记 $marker").performScrollTo().performClick()
+        }
+        compose.onNodeWithText("寻宝完成", substring = true).assertExists()
         tab("我的").performClick()
         compose.onNodeWithText("收藏文物").performScrollTo().performClick()
         compose.onNodeWithText("直裾素纱单衣").assertExists()
         compose.onNodeWithText("游戏进度").performScrollTo().performClick()
-        compose.onNodeWithText("帛画寻宝 · 已完成").assertExists()
+        compose.onNode(hasText("帛画寻宝") and hasText("已完成")).assertExists()
     }
 
     @Test fun adultModeOpensRelationshipTimelineAndSwitchesModes() {
