@@ -51,7 +51,8 @@ class MuseumCollectionAndGamesTest {
         assertEquals(11, museumCollection.map { it.art }.distinct().size)
         assertTrue(museumCollection.all { !it.origin.isNullOrBlank() && it.period.isNotBlank() && it.collection != null })
         compose.onNodeWithText("成人模式").performScrollTo().performClick()
-        capture("v2-adult-collection.png")
+        compose.waitUntil(8000) { compose.onAllNodesWithText("馆藏展品").fetchSemanticsNodes().isNotEmpty() }
+        capture("catalog-adult-home.png")
         val list = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
         list.performScrollToNode(hasText("11 件"))
         list.performScrollToNode(hasText("长沙窑茶具"))
@@ -63,16 +64,32 @@ class MuseumCollectionAndGamesTest {
             (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
                 .hideSoftInputFromWindow(view.windowToken, 0)
         }
+        compose.onNode(hasText("青铜器") and isSelectable()).performClick().assertIsSelected()
+        list.performScrollToNode(hasText("大禾人面纹方鼎"))
         compose.onNodeWithText("大禾人面纹方鼎").performClick()
+        compose.onNodeWithText("问问这件文物").assertIsDisplayed()
+        compose.onNodeWithText("收藏展品").performClick()
+        capture("catalog-adult-detail.png")
         compose.onNodeWithText("馆藏档案").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("图像原始出处").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("看大图").performScrollTo().performClick()
         compose.onNodeWithText("放大").performClick()
         compose.onNodeWithText("复位").assertIsEnabled()
         compose.onNodeWithText("关闭大图").performClick()
-        compose.onNodeWithText("收藏展品").performScrollTo().performClick()
-        compose.onNodeWithText("取消收藏").assertExists()
-        capture("v2-adult-archive.png")
+        compose.onNodeWithText("取消收藏").assertIsDisplayed()
+        compose.onNodeWithText("问问这件文物").performClick()
+        compose.waitUntil(5000) { controller().state.value.exhibitContextName == "大禾人面纹方鼎" }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("取消收藏").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("大禾人面纹方鼎").assertIsDisplayed()
+        list.performScrollToIndex(0)
+        compose.onNode(hasSetTextAction() and hasText("方鼎")).assertExists()
+        compose.onNode(hasText("青铜器") and isSelectable()).assertIsSelected()
+        compose.onNodeWithText("清除").performClick()
+        compose.onNode(hasText("全部") and isSelectable()).performClick()
+        list.performScrollToNode(hasText("馆藏目录"))
+        compose.onNodeWithText("馆藏目录").assertIsDisplayed()
     }
 
     @Test fun bannerTreasureRespondsToWrongAndCorrectTapsAndSaves() {

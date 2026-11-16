@@ -55,7 +55,7 @@ class MuseumNavigationTest {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         listOf("展品", "故事", "对话", "游戏", "我的").forEach { tab(it).assertIsDisplayed() }
         tab("展品").assertIsSelected()
-        screenshot("zhibo-child-exhibits.png")
+        screenshot("catalog-child-home.png")
         tab("故事").performClick().assertIsSelected()
         compose.onNodeWithText("汉代的一天").assertIsDisplayed()
         screenshot("zhibo-child-stories.png")
@@ -74,7 +74,8 @@ class MuseumNavigationTest {
     @Test fun childGameAndCollectionPersistWithinTheAccount() {
         compose.onNodeWithText("儿童模式").performScrollTo().performClick()
         compose.onNodeWithText("看看细节").performScrollTo().performClick()
-        compose.onNodeWithText("收藏展品").performScrollTo().performClick()
+        compose.onNodeWithText("收藏展品").performClick()
+        compose.onNodeWithText("返回展品").performClick()
         tab("游戏").performClick()
         compose.onNodeWithText("开始找").performScrollTo().performClick()
         (1..3).forEach { marker ->
@@ -83,7 +84,9 @@ class MuseumNavigationTest {
         compose.onNodeWithText("寻宝完成", substring = true).assertExists()
         tab("我的").performClick()
         compose.onNodeWithText("收藏文物").performScrollTo().performClick()
-        compose.onNodeWithText("直裾素纱单衣").assertExists()
+        compose.onNodeWithText("直裾素纱单衣").performScrollTo().performClick()
+        compose.onNodeWithText("返回展品").performClick()
+        tab("我的").assertIsSelected()
         compose.onNodeWithText("游戏进度").performScrollTo().performClick()
         compose.onNode(hasText("帛画寻宝") and hasText("已完成")).assertExists()
     }
