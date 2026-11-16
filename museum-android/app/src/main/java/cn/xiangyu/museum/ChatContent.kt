@@ -72,20 +72,18 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
         val compact = maxHeight < 360.dp || maxWidth < 260.dp * LocalDensity.current.fontScale
         val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         Column(Modifier.widthIn(max = 760.dp).fillMaxSize().align(Alignment.TopCenter)) {
-            if (compact) {
+            if (compact && !keyboardOpen) {
                 FlowRow(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(Space.small), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (child) "问文物" else "AI 讲解", style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.align(Alignment.CenterVertically).semantics { heading() })
                     Text(subject, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f).align(Alignment.CenterVertically), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (!keyboardOpen) {
-                        if (onMode != null) TextButton(onClick = onMode, enabled = !state.chatBusy) { Text("切换模式") }
-                        TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
-                        TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
-                    }
+                    if (onMode != null) TextButton(onClick = onMode, enabled = !state.chatBusy) { Text("切换模式") }
+                    TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
+                    TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
                 }
-            } else Surface(color = MaterialTheme.colorScheme.surface) {
+            } else if (!compact) Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = Space.medium, vertical = Space.small)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Image(painterResource(R.drawable.zhibo_seal), null,
@@ -94,7 +92,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                             Text(if (child) "问文物" else "AI 讲解", style = MaterialTheme.typography.titleLarge,
                                 modifier = Modifier.semantics { heading() })
                         }
-                        TextButton(onClick = { showSessions = true }, enabled = !state.chatBusy) { Text("历史会话") }
+                        GuideAction("历史会话", { showSessions = true }, enabled = !state.chatBusy, secondary = true)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(subject, style = MaterialTheme.typography.labelMedium,
@@ -102,7 +100,7 @@ fun ChatContent(state: MuseumState, onDraft: (String) -> Unit, onSend: (String?)
                         if (onMode != null) TextButton(onClick = onMode, enabled = !state.chatBusy) {
                             Text("${state.audience?.label} · 切换模式", style = MaterialTheme.typography.labelMedium)
                         }
-                        TextButton(onClick = onNew, enabled = !state.chatBusy) { Text("新对话") }
+                        GuideAction("新对话", onNew, enabled = !state.chatBusy, secondary = true)
                     }
                 }
             }

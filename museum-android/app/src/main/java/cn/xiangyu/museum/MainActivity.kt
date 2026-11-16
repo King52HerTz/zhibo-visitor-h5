@@ -255,6 +255,12 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             }
             return@Scaffold
         }
+        if (audience != null && library != null && tab == GuideTab.EXHIBITS) {
+            ExhibitPage(audience, guideExhibits.firstOrNull { it.id == exhibitId }, exhibitId in library.saved,
+                observation?.busy != true, ::openExhibit, { exhibitId = null }, ::askExhibit, library::toggle,
+                ::openObservation, { requestIdentityExit(DraftIdentityExit.MODE) }, Modifier.padding(padding))
+            return@Scaffold
+        }
         Column(modifier = Modifier.padding(padding).fillMaxSize()
             .verticalScroll(pageScroll).padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -265,12 +271,10 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
             } else if (library != null) {
                 GuideHeader(audience, observation?.busy != true) { requestIdentityExit(DraftIdentityExit.MODE) }
                 when (tab) {
-                    GuideTab.EXHIBITS -> ExhibitPage(audience, guideExhibits.firstOrNull { it.id == exhibitId },
-                        exhibitId in library.saved, ::openExhibit, { exhibitId = null }, ::askExhibit,
-                        library::toggle, ::openObservation)
+                    GuideTab.EXHIBITS -> Unit
                     GuideTab.STORIES -> if (!chapter) {
                         StoryPage(guideStories.firstOrNull { it.id == storyId }, ::openStory,
-                            { storyId = null }, { chapter = true })
+                            { storyId = null }, { chapter = true }, ::openExhibit)
                     } else if (taskId != null) {
                         TextButton(onClick = { taskId = null }) { Text("返回故事") }
                         FirstChapter.tasks.firstOrNull { it.id == taskId }?.let { task ->
@@ -281,7 +285,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         var showIntro by rememberSaveable { mutableStateOf(false) }
                         if (showIntro) StoryInvitation { showIntro = false }
                         else OutlinedButton(onClick = { showIntro = true }) { Text("重看故事引入") }
-                        OutlinedButton(onClick = ::openPuzzle) { Text("进入横屏衣坊") }
+                        OutlinedButton(onClick = ::openPuzzle) { Text("进入衣坊") }
                         StoryChapterContent(state.endpoint, username, ::openStorySlice, progress.progress.completed)
                         WorkshopContent(progress.progress, onTask = { taskId = it.id })
                         OutlinedButton(onClick = { sources = !sources }) { Text(if (sources) "收起档案" else "文物与来源") }
@@ -293,7 +297,7 @@ private fun MuseumPages(state: MuseumState, controller: MuseumController?, modif
                         }
                     }
                     GuideTab.GAMES -> GamePage(guideGames.firstOrNull { it.id == gameId }, { gameId = it.id },
-                        { gameId = null }, { library.finishGame(it.id) }, ::openStorySlice, ::openPuzzle)
+                        { gameId = null }, { library.finishGame(it.id) }, ::openStorySlice, ::openPuzzle, ::openExhibit)
                     GuideTab.GRAPH -> GraphPage(::openExhibit, ::askExhibit)
                     GuideTab.TIMELINE -> TimelinePage(::openExhibit)
                     GuideTab.MINE -> MinePage(audience, library, ::openExhibit, ::openStory, {

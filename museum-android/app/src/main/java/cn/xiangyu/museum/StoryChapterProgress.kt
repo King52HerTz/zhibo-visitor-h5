@@ -26,7 +26,7 @@ data class StoryChapterProgress(val mask: Int = 0, val stamped: Boolean = false,
 /** Prefix checkpoints preserve the first slice's three bits and enforce chapter order. */
 internal fun validStoryMask(mask: Int) = mask in 0..511 && mask and (mask + 1) == 0
 
-/** SQLite handles the account shell and the isolated Godot process without preference caches. */
+/** SQLite preserves chapter progress across app versions and synchronizes with completed tasks. */
 class StoryChapterStore(context: Context) : AutoCloseable {
     private val legacy = context.getSharedPreferences("puzzle_checkpoints", Context.MODE_PRIVATE)
     private val helper = object : SQLiteOpenHelper(context, "museum_story.db", null, 1) {

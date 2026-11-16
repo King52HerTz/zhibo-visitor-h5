@@ -53,14 +53,11 @@ fun AccountContent(state: MuseumState, onSubmit: (String, String, String, Boolea
                 enabled = !state.authBusy && username.isNotBlank() && password.isNotEmpty() && endpoint.isNotBlank()) {
                 Text(if (state.authBusy) "正在连接…" else if (register) "注册" else "登录")
             }
-            TextButton(onClick = { register = !register; password = "" }, enabled = !state.authBusy,
-                modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp)) {
-                Text(if (register) "返回登录" else "注册账号")
-            }
+            GuideAction(if (register) "返回登录" else "注册账号", { register = !register; password = "" },
+                Modifier.fillMaxWidth(), secondary = true, enabled = !state.authBusy, end = "›")
             if (register) Text("儿童请由成人协助注册。", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { connectionSettings = !connectionSettings }, enabled = !state.authBusy) {
-                Text(if (connectionSettings) "收起连接设置" else "连接设置")
-            }
+            GuideAction(if (connectionSettings) "收起连接设置" else "连接设置",
+                { connectionSettings = !connectionSettings }, secondary = true, enabled = !state.authBusy)
             if (connectionSettings) {
                 MuseumField(endpoint, { endpoint = it }, "知识库服务地址", enabled = !state.authBusy)
                 Text("填写网页版知识库所在的服务地址，使用同一账号登录。",
@@ -101,5 +98,5 @@ internal fun ModeSelection(enabled: Boolean, onSelect: (Audience) -> Unit, onLog
             }
         }
     }
-    TextButton(onClick = onLogout, enabled = enabled) { Text("退出登录") }
+    GuideAction("退出登录", onLogout, secondary = true, enabled = enabled)
 }

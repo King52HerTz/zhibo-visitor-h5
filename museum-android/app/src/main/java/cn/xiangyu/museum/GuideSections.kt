@@ -17,25 +17,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 
-internal data class GuideStory(val id: String, val title: String, val art: Int, val text: String)
+internal data class GuideStory(val id: String, val title: String, val art: Int, val text: String,
+                               val related: List<String>)
 internal val guideStories = listOf(
     GuideStory("han-day", "汉代的一天", R.drawable.zhibo_market,
-        "想象自己来到汉代的长沙。早晨，做饭的人拿出漆器，织工把丝线穿进织机。我们今天看到的衣服和餐具，就是认识他们日常生活的线索。先看一看：哪件文物让你想起自己每天都会用到的东西？"),
-    GuideStory("stone", "石头上的故事", R.drawable.zhibo_rubbing,
-        "古人把车马、动物和人的活动刻在石头上。后来，人们用纸和墨把刻出来的图案印下来，这叫拓印。想一想：如果要在石头上留下一幅画，你会画哪一件事？"),
-    GuideStory("bamboo", "写在竹片上的信", R.drawable.zhibo_bamboo,
-        "古人可以把字写在削好的竹片上，再用绳子把竹片连起来。读的时候，要顺着竹片一片一片看。今天我们翻纸页，就不必把竹片绑起来了。")
-)
-
-internal data class GuideGame(val id: String, val title: String, val art: Int, val hint: String,
-                              val options: List<String>, val answer: Int, val fact: String)
-internal val guideGames = listOf(
-    GuideGame("banner", "帛画寻宝", R.drawable.zhibo_game_banner, "太阳在这张帛画示意图的哪里？",
-        listOf("画面右上", "画面左下", "画面正中"), 0, "这里用圆形画出太阳。也可以去展品档案，找找帛画上的月亮。"),
-    GuideGame("bells", "编钟排排队", R.drawable.zhibo_bells, "观察图里的四件钟，按从小到大的顺序点选。",
-        listOf("最小的钟", "最大的钟", "中间的钟"), 1, "你按大小排好了编钟。还可以留意钟口形状和表面花纹。"),
-    GuideGame("pottery", "陶罐拼一拼", R.drawable.zhibo_pottery, "从上往下，依次找出陶罐的三个部位。",
-        listOf("最下面", "中间", "最上面"), 2, "器口在最上，下面依次是器身和底部。考古工作里还会对照断口和纹饰来判断碎片能否相接。")
+        "想象来到西汉的长沙。有位织工正在整理丝线，有人在摆放食具。我们没有那天的照片，却能从出土的衣服和餐具找到线索。\n\n" +
+        "素纱单衣的衣身那么薄，深色的领缘却很容易看清。用手想象捏住那层纱，就会明白为什么织和缝都得格外小心。\n\n" +
+        "饭桌也有线索。漆耳杯有两只小耳，拿起来更方便。衣服和杯子是两件不一样的东西，却都留下了汉代工匠动手制作的痕迹。",
+        listOf("silk-plain-straight", "mwd-eared-cups")),
+    GuideStory("stone", "在帛画里找日月", R.drawable.zhibo_game_banner,
+        "先看帛画最宽的地方：圆圆的日轮在一边，弯弯的月亮在另一边。\n\n" +
+        "顺着画面往下，还有人物和动物。试着比一比，它们是挤在同一处，还是有上、下不同的空间？\n\n" +
+        "每个图案都能提出一个问题。下一次看完整的画时，先找自己最熟悉的图形，再留心那些看上去有点奇怪的细节。",
+        listOf("t-banner")),
+    GuideStory("bamboo", "写在丝帛上的字", R.drawable.zhibo_bamboo,
+        "纸张还未普及时，古人可以把字写在竹木上，也可以写在丝帛上。丝帛展开时，字能沿着一列一列排下去。\n\n" +
+        "马王堆三号墓出土了两种《老子》抄本。考古报告把它们称为甲本和乙本。今天看到的展品照片只是一小截，凑近能发现每一行留下的墨迹。",
+        listOf("mwd-laozi-a"))
 )
 
 @Composable
@@ -63,78 +61,58 @@ internal fun GuideNarration(text: String, label: String) {
 
 @Composable
 internal fun StoryPage(selected: GuideStory?, onOpen: (GuideStory) -> Unit, onBack: () -> Unit,
-                       onOpenOriginal: () -> Unit) {
+                       onOpenOriginal: () -> Unit, onExhibit: (GuideExhibit) -> Unit) {
     if (selected != null) {
-        TextButton(onClick = onBack) { Text("返回故事") }
+        GuideAction("返回故事", onBack, secondary = true)
         GuideTitle(selected.title)
         GuideArt(selected.art, null)
         GuideNarration(selected.text, "听故事")
         Text(if (selected.id == "han-day") "场景想象" else "文物故事",
             color = MaterialTheme.colorScheme.primary)
         Text(selected.text, style = MaterialTheme.typography.bodyLarge)
+        Text("故事里的文物", style = MaterialTheme.typography.titleLarge)
+        selected.related.forEach { id ->
+            val exhibit = museumCollection.first { it.id == id }
+            GuideRowAction(exhibit.name, exhibit.period, { onExhibit(exhibit) }, artwork = exhibit.art)
+        }
         return
     }
     GuideTitle("听故事")
     GuideFeature(guideStories.first().title, "两千年前，人们怎么过日子？", guideStories.first().art,
-        "开始听") { onOpen(guideStories.first()) }
+        "阅读故事") { onOpen(guideStories.first()) }
     Text("更多故事", style = MaterialTheme.typography.titleLarge)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         guideStories.drop(1).forEach { GuideTile(it.title, it.art, Modifier.weight(1f)) { onOpen(it) } }
     }
-    OutlinedButton(onClick = onOpenOriginal) { Text("衣服里的秘密") }
+    GuideRowAction("衣服里的秘密", "故事、纹样和观察手帐", onOpenOriginal, artwork = R.drawable.zhibo_gauze)
 }
 
 @Composable
 internal fun GamePage(selected: GuideGame?, onOpen: (GuideGame) -> Unit, onBack: () -> Unit,
-                      onFinish: (GuideGame) -> Unit, onStorySlice: () -> Unit, onPuzzle: () -> Unit) {
+                      onFinish: (GuideGame) -> Unit, onStorySlice: () -> Unit, onPuzzle: () -> Unit,
+                      onExhibit: (GuideExhibit) -> Unit) {
     if (selected != null) {
-        var choice by remember(selected.id) { mutableIntStateOf(-1) }
-        TextButton(onClick = onBack) { Text("返回游戏") }
+        GuideAction("返回游戏", onBack, secondary = true)
         GuideTitle(selected.title)
-        GuideArt(selected.art, null)
-        Text(selected.hint, style = MaterialTheme.typography.titleLarge)
-        if (selected.id == "banner") {
-            selected.options.forEachIndexed { i, option ->
-                OutlinedButton(onClick = { choice = i; if (i == selected.answer) onFinish(selected) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) { Text(option) }
-            }
-            if (choice >= 0) MuseumNotice(if (choice == selected.answer) selected.fact else "再看看图里的细节，试一次。")
-        } else {
-            val (pieces, solution) = if (selected.id == "bells")
-                listOf("最左边", "左数第二", "左数第三", "最右边") to listOf(3, 2, 1, 0)
-            else listOf("底部", "口沿", "器身") to listOf(1, 2, 0)
-            ArrangePieces(selected.id, pieces, solution, selected.fact) { onFinish(selected) }
+        val exhibitId = when (selected) {
+            GuideGame.GAUZE -> "silk-plain-straight"
+            GuideGame.BANNER -> "t-banner"
+            GuideGame.LACQUER -> "mwd-eared-cups"
+            GuideGame.DAOYIN -> "mwd-daoyin"
         }
+        val exhibit = museumCollection.first { it.id == exhibitId }
+        MuseumGame(selected, onRelated = { onExhibit(exhibit) }) { onFinish(selected) }
         return
     }
     GuideTitle("玩历史")
     val feature = guideGames.first()
-    GuideFeature(feature.title, "在帛画里找找太阳", feature.art, "开始找") { onOpen(feature) }
+    GuideFeature(feature.title, feature.instruction, R.drawable.zhibo_game_banner, "开始找") { onOpen(feature) }
     Text("更多游戏", style = MaterialTheme.typography.titleLarge)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         guideGames.drop(1).forEach { GuideTile(it.title, it.art, Modifier.weight(1f)) { onOpen(it) } }
     }
-    OutlinedButton(onClick = onStorySlice) { Text("三件文物的旅程") }
-    OutlinedButton(onClick = onPuzzle) { Text("进入横屏衣坊") }
-}
-
-@Composable
-private fun ArrangePieces(id: String, labels: List<String>, solution: List<Int>,
-                          fact: String, onFinish: () -> Unit) {
-    var order by rememberSaveable(id) { mutableStateOf(arrayListOf<Int>()) }
-    Text(if (order.isEmpty()) "依次点选下方的部件" else order.joinToString(" → ") { labels[it] },
-        style = MaterialTheme.typography.bodyMedium)
-    labels.forEachIndexed { index, label ->
-        OutlinedButton(onClick = {
-            val next = ArrayList(order + index)
-            order = next
-            if (next == solution) onFinish()
-        }, enabled = index !in order,
-            modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) { Text(label) }
-    }
-    if (order.size == solution.size)
-        MuseumNotice(if (order == solution) fact else "顺序还差一点，清空之后可以再试一次。")
-    if (order.isNotEmpty()) TextButton(onClick = { order = arrayListOf() }) { Text("重新排列") }
+    GuideRowAction("三件文物的旅程", "串起素纱单衣、帛画和导引图", onStorySlice, artwork = R.drawable.zhibo_bamboo)
+    GuideRowAction("进入衣坊", "完成花叶纹样和衣料观察", onPuzzle, artwork = R.drawable.zhibo_textile)
 }
 
 @Composable
@@ -144,7 +122,7 @@ private fun GuideFeature(title: String, subtitle: String, art: Int, action: Stri
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             Text(subtitle, style = MaterialTheme.typography.bodyLarge)
-            Button(onClick = onClick, shape = RoundedCornerShape(8.dp)) { Text(action) }
+            GuideAction(action, onClick, Modifier.fillMaxWidth(), end = "›")
         }
     }
 }
@@ -161,15 +139,15 @@ internal fun GraphPage(onOpen: (GuideExhibit) -> Unit, onAsk: (GuideExhibit) -> 
     }
     if (structure) {
         Text("从结构读铜鼎", style = MaterialTheme.typography.titleLarge)
-        GuideArt(R.drawable.zhibo_bronze, "铜鼎示意图")
+        GuideArt(R.drawable.collection_ding, "大禾人面纹方鼎", scale = androidx.compose.ui.layout.ContentScale.Fit)
         listOf("耳" to "位于口沿上方，观察它与器口的连接。", "腹" to "器身的主要部分，表面常见纹饰。",
-            "足" to "支撑器身，可从形状和数量观察器物特征。").forEach { (name, detail) ->
+            "足" to "这件方鼎以四足支撑器身。观察各足与四个器角的关系。").forEach { (name, detail) ->
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(name, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
                 Text(detail, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        MuseumButton({ onOpen(guideExhibits.last()) }) { Text("查看铜鼎") }
+        MuseumButton({ onOpen(museumCollection.first { it.id == "human-face-ding" }) }) { Text("查看铜鼎") }
     } else {
         Text("马王堆一号汉墓", style = MaterialTheme.typography.titleLarge)
         OutlinedCard(Modifier.fillMaxWidth()) {
@@ -191,7 +169,7 @@ internal fun GraphPage(onOpen: (GuideExhibit) -> Unit, onAsk: (GuideExhibit) -> 
                         OutlinedCard(onClick = { selected = index }, modifier = Modifier.weight(1f),
                             border = androidx.compose.foundation.BorderStroke(1.dp, if (selected == index)
                                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
-                            GuideArt(item.art, null, ratio = 1.7f)
+                            GuideArt(item.art, null, ratio = 1.7f, scale = androidx.compose.ui.layout.ContentScale.Fit)
                             Text(item.name, Modifier.fillMaxWidth().padding(6.dp), textAlign = TextAlign.Center)
                         }
                     }
@@ -226,7 +204,7 @@ internal fun TimelinePage(onOpen: (GuideExhibit) -> Unit) {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     TimelinePeriod("考古发掘")
     TimelineRecord("1972年", "发掘一号汉墓", null, null)
-    TextButton(onClick = { onOpen(guideExhibits[1]) }) { Text("查看出土文物 ›") }
+    GuideRowAction("查看出土文物", "一号汉墓T形帛画", { onOpen(guideExhibits[1]) }, artwork = R.drawable.collection_banner)
     TimelineRecord("1973—1974年", "发掘二号、三号汉墓", null, R.drawable.zhibo_excavation)
 }
 
@@ -279,23 +257,23 @@ internal fun MinePage(audience: Audience, library: GuideLibrary, onOpen: (GuideE
         val labels = if (child) listOf("收藏文物", "游戏进度", "对话记录", "观展手帐")
             else listOf("收藏展品", "观展笔记", "对话记录")
         labels.forEach { label ->
-            TextButton(onClick = {
-                if (label == "对话记录") onHistory() else section = if (section == label) "" else label
-            }, modifier = Modifier.fillMaxWidth().heightIn(min = Space.touch)) {
-                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                Text("›")
+            val image = when (label) {
+                "对话记录" -> R.drawable.zhibo_nav_chat
+                "游戏进度" -> R.drawable.zhibo_nav_game
+                "观展笔记", "观展手帐" -> R.drawable.zhibo_nav_story
+                else -> R.drawable.zhibo_nav_exhibit
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            GuideRowAction(label, onClick = {
+                if (label == "对话记录") onHistory() else section = if (section == label) "" else label
+            }, artwork = image)
             if (section == label) when (label) {
                 labels.first() -> {
                     val saved = guideExhibits.filter { it.id in library.saved }
                     if (saved.isEmpty()) Text("还没有收藏，可以在展品详情里收藏。")
-                    saved.forEach { TextButton(onClick = { onOpen(it) }) { Text(it.name) } }
+                    saved.forEach { item -> GuideRowAction(item.name, item.period, { onOpen(item) }, artwork = item.art) }
                 }
                 "游戏进度" -> guideGames.forEach { game ->
-                    TextButton(onClick = { onGame(game) }) {
-                        Text(game.title + if (game.id in library.games) " · 已完成" else " · 未完成")
-                    }
+                    GuideRowAction(game.title, if (game.id in library.games) "已完成" else "尚未完成", { onGame(game) }, artwork = game.art)
                 }
                 "观展笔记", "观展手帐" -> onNotes()
             }
